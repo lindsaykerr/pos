@@ -1,0 +1,7 @@
+/target
+/sqlite-server
+/pages
+pos_inventory.sqbpro
+pos_inventory.db.sql
+pos_inventory.db
+stock_test.db
