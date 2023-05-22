@@ -41,6 +41,7 @@ fn main() -> Result<(), ErrorKind>{
         print!("Error: {}", e.message());
         return Err(ErrorKind::AddrNotAvailable);
     }
+    
     // start the server
     rest_server::start(socket_addr.unwrap())?;
     

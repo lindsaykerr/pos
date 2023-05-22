@@ -1,8 +1,9 @@
 use crate::server::api::Query;
 use crate::errors::DatabaseError;
 use crate::config::SQLITE_DB_PATH;
+
 use json::{self, JsonValue};
-use sqlite::{State, Statement, Connection};
+use sqlite::{State, Statement, Connection, ReadableWithIndex, Type as SqliteType};
 
 pub enum Type {
     Sqlite,
@@ -23,14 +24,16 @@ pub struct DbField {
     column: usize,
     name: String,
     a_type: Value,
+    not_null: bool,
 }
 
 impl DbField {
-    pub fn new(column: usize, name: &str, a_type: Value) -> DbField {
+    pub fn new(column: usize, name: &str, a_type: Value, not_null: bool) -> DbField {
         DbField { 
             column, 
             name: name.to_string(), 
-            a_type
+            a_type,
+            not_null,
         }
     }
 }
@@ -44,7 +47,12 @@ impl DBRow {
         }
     }
 }
-    
+
+
+
+
+
+
 
 
 pub fn process_query(query: Query, db_type: Type) -> Result<String, DatabaseError> {
@@ -65,6 +73,15 @@ fn query_to_sqlite(query: Query) -> Result<String, DatabaseError> {
         "code": 200,
         "success": true,
     };
+    let cloned_query = query.clone();
+
+    // what query is being made?
+    match cloned_query {
+        Query::GETStockSuppliers => println!("GETStockSuppliers"),
+        Query::GETStockSupplierId(id) => println!("GETStockSupplierId({})", id),
+        Query::GETStockSupplierName => println!("GETStockSupplierName"),
+        _ => println!("Invalid query")
+    }
 
     match query {
 
@@ -78,31 +95,16 @@ fn query_to_sqlite(query: Query) -> Result<String, DatabaseError> {
             let statement = statement_result.unwrap();
 
             // It has the following table structure:
-            let mut supplier_row: DBRow = DBRow::new();
-            supplier_row.fields.push(DbField::new(0, "id", Value::Integer));
-            supplier_row.fields.push(DbField::new(1, "Name", Value::String));
-            supplier_row.fields.push(DbField::new(2, "ContactID", Value::Boolean));
-            supplier_row.fields.push(DbField::new(3, "Active", Value::Boolean));
-            supplier_row.fields.push(DbField::new(4, "Address_Line1", Value::String));
-            supplier_row.fields.push(DbField::new(5, "Address_Line2", Value::String));
-            supplier_row.fields.push(DbField::new(6, "Address_Town", Value::String));
-            supplier_row.fields.push(DbField::new(7, "Address_Council", Value::String));
-            supplier_row.fields.push(DbField::new(8, "Address_Postcode", Value::String));
-            supplier_row.fields.push(DbField::new(9, "Rep_FirstName", Value::String));
-            supplier_row.fields.push(DbField::new(10, "Rep_LastName", Value::String));
-            supplier_row.fields.push(DbField::new(11, "Rep_ContactID", Value::Integer));    
-            let suppliers_dump: JsonValue = sqlite_to_json_payload(statement, supplier_row);
+            let db_row_struct = sqlite_db_tables(&query.clone()); 
+
+            let suppliers_dump: JsonValue = sqlite_to_json_payload(statement, db_row_struct);
             
 
             if suppliers_dump.is_null() || !suppliers_dump.is_array() {
                 return Ok(json_object.dump());
             }
 
-            let statement_result = connection.prepare("SELECT * FROM view_suppliers");
-            if let Err(e) = statement_result {
-                return Err(DatabaseError::QueryError("Sqlite db query stockItems failed".to_string()));
-            }
-            let statement = statement_result.unwrap();
+            json_object["payload"] = suppliers_dump;
         },
         _ => {
             return Err(DatabaseError::QueryError("Invalid query provided".to_string()));
@@ -147,45 +149,107 @@ fn sqlite_to_json_payload(mut statement: Statement, db_table_row: DBRow) -> json
             let id = field.column;
             let name = field.name.as_str();
             let a_type = &field.a_type;
+            let not_null_flag = field.not_null;
+            
+            let value: sqlite::Value = statement.read(id).unwrap();
+
+            // sometimes the value of a db entry may be null, so we need to check for this
+            if not_null_flag && value.kind().eq(&sqlite::Type::Null) {
+                entry_object[name] = json::JsonValue::Null;
+                continue;
+            }
+       
             match a_type {
-                Value::Boolean =>{
-                    let value = statement.read::<i64, _>(id).unwrap();
-                    if value == 0 {
-                        entry_object[name] = false.into();
+                Value::Boolean => {
+                
+       
+                    if let Ok(value) = TryFrom::try_from(&value) {
+                        let value: i64 = value;
+                        if value == 0 {
+                            entry_object[name] = JsonValue::from(false);
+                        }
+                        else {
+                            entry_object[name] = JsonValue::from(true);
+                        }
+                    } 
+                    else {
+                        print!("Invalid value type provided in sqlite_to_json, should have been been 1 or 2");
+                        entry_object[name] = json::JsonValue::Null;
+                    }             
+        
+                },
+             
+                Value::Float => {
+                    if let Ok(value) = TryFrom::try_from(&value) {
+                        let value: f64 = value;
+                        entry_object[name] = JsonValue::from(value);
                     }
                     else {
-                        entry_object[name] = true.into();
+                        print!("Invalid value type provided in sqlite_to_json, should have been a float");
+                        entry_object[name] = json::JsonValue::Null;
+                    }
+        
+                },
+                Value::Integer => {
+                    if let Ok(value) = TryFrom::try_from(&value) {
+                        let value: i64 = value;
+                        entry_object[name] = JsonValue::from(value);
+                    }
+                    else {
+                        print!("Invalid value type provided in sqlite_to_json, should have been an integer");
+                        entry_object[name] = json::JsonValue::Null;
+                    }
+                },
+                Value::String => { 
+                    if let Ok(value) = TryFrom::try_from(value) {
+                        let value: String = value;
+                        entry_object[name] = JsonValue::from(value);
+                    }
+                    else {
+                        print!("Invalid value type provided in sqlite_to_json, should have been a string");
+                        entry_object[name] = json::JsonValue::Null;
                     }
                 },
                 Value::Binary => {
-                    entry_object[name] = statement.read::<Vec<u8>, _>(id).unwrap().into();
-                },
-                Value::Float => {
-                    entry_object[name] = statement.read::<f64, _>(id).unwrap().into();
-                },
-                Value::Integer => {
-                    entry_object[name] = statement.read::<i64, _>(id).unwrap().into();
-                },
-                Value::String => { 
-                    entry_object[name] = statement.read::<String, _>(id).unwrap().into();
-                },
-                Value::Null => {
-
-                    // spit out value which will be used to determine if the field value is null
-                    let a_value: sqlite::Value = statement.read(id).unwrap();
-
-                    // if the value is null then set the json value to null
-                    if a_value.kind().eq(&sqlite::Type::Null) {
-                        entry_object[name] = json::JsonValue::Null;
+                    if let Ok(value) = TryFrom::try_from(value) {
+                        let value: Vec<u8> = value;
+                        entry_object[name] = JsonValue::from(value);
                     }
                     else {
-                        panic!("Invalid value type provided in sqlite_to_json, should have been null");
+                        print!("Invalid value type provided in sqlite_to_json, should have been a string");
+                        entry_object[name] = json::JsonValue::Null;
                     }
+        
                 },
+                Value::Null => {
+                    entry_object[name] = json::JsonValue::Null;
+                }
             }
         }
 
         json_array.push(entry_object).unwrap();   
     }
     json_array
+}
+
+// This function is used to call a DBRow struct that represents the expected column names 
+// of the tables found in the working db. This is used to help map the sql to another 
+// data type such as json 
+fn sqlite_db_tables(for_query: &Query) -> DBRow {
+    match for_query {
+        Query::GETStockSuppliers => {
+            let mut supplier_row: DBRow = DBRow::new();
+            supplier_row.fields.push(DbField::new(0, "id", Value::Integer, true));
+            supplier_row.fields.push(DbField::new(1, "name", Value::String, true));
+            supplier_row.fields.push(DbField::new(2, "address", Value::String, true));
+            supplier_row.fields.push(DbField::new(3, "phone", Value::String, true));
+            supplier_row.fields.push(DbField::new(4, "email", Value::String, true));
+            supplier_row.fields.push(DbField::new(5, "website", Value::String, true));
+            supplier_row.fields.push(DbField::new(6, "contact", Value::String, true));
+            supplier_row.fields.push(DbField::new(7, "notes", Value::String, true));
+            
+            supplier_row
+        },
+        _ => DBRow::new()
+    }
 }
