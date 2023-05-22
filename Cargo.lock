@@ -3,6 +3,15 @@
 version = 3
 
 [[package]]
+name = "Pos"
+version = "0.0.1"
+dependencies = [
+ "json",
+ "regex",
+ "sqlite",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -86,13 +95,4 @@ checksum = "d47c99824fc55360ba00caf28de0b8a0458369b832e016a64c13af0ad9fbb9ee"
 dependencies = [
  "libc",
  "sqlite3-src",
-]
-
-[[package]]
-name = "testserver"
-version = "0.1.0"
-dependencies = [
- "json",
- "regex",
- "sqlite",
 ]
