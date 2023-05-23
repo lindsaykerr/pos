@@ -35,6 +35,8 @@ pub fn connection(mut stream: TcpStream) {
        
                 content = String::from("Api Docs");
                 status_line = "HTTP/1.1 200 OK".to_string();
+          
+          
             },
             _ =>  {
 
