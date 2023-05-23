@@ -1,12 +1,12 @@
 use json::{self, JsonValue};
 
-/// Used as switch value to choose which database to use
+/// Provides a database type selection
 pub enum Type {
     Sqlite,
     Postgres,
 }
 
-/// Used to represent a cell value in an relational database
+/// Represents a cell value for a relational database
 pub enum Value {
     Boolean(bool),
     Binary(Vec<u8>),
@@ -16,7 +16,7 @@ pub enum Value {
     Null,
 }
 
-/// Used to represent a row the characteristics of a field/column in an relational database
+/// Represents the characteristics of a field/column in a relational database
 pub struct DbFieldStruct {
     pub column: usize,
     pub name: String,
@@ -53,7 +53,7 @@ impl Clone for DbFieldStruct {
     }
 }
 
-/// Used to represent the complete structure of a relational database table
+/// Represents the complete structure of a relational database table
 pub struct DBTableStruct {
     pub fields: Vec<DbFieldStruct>,
 }
@@ -81,7 +81,7 @@ impl Clone for DBTableStruct {
 }
 
 
-/// Holds data for a single row in a relational database table
+/// Holds a row of cell data, in a relational database table
 pub struct DBTableRow {
     cells: Vec<Value>,
 }
@@ -96,7 +96,7 @@ impl DBTableRow {
     }
 }
 
-/// Holds the data from a relational database table or view
+/// Holds the complete set of data from a relational database table or view
 pub struct  DBTable {
     pub structure: DBTableStruct,
     pub rows: Vec<DBTableRow>,

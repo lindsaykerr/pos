@@ -5,7 +5,9 @@ use sqlite::{State, Statement, Connection};
 use json::{self};
 use crate::server::databases::data_structs::{DBTable, DBTableRow, DBTableStruct,  DbFieldStruct, Value};
 
-
+///
+/// Queries the sqlite database and returns a response in the form of a json string.
+///
 pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
     
     let database_path = SQLITE_DB_PATH;
@@ -16,15 +18,18 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
         "code": 200,
         "success": true,
     };
-    let cloned_query = query.clone();
 
-    // what query is being made?
+
+    // Aids in debugging specific queries
+    /* 
+    let cloned_query = query.clone();
     match cloned_query {
         Query::GETStockSuppliers => println!("GETStockSuppliers"),
         Query::GETStockSupplierId(id) => println!("GETStockSupplierId({})", id),
         Query::GETStockSupplierName => println!("GETStockSupplierName"),
         _ => println!("Invalid query")
     }
+    */
 
     match query {
 
@@ -86,16 +91,16 @@ fn db_table_from_query(query_type: &Query, connection: &sqlite::Connection, sql_
        return Err(DatabaseError::QueryError("Sqlite db query stockItems failed".to_string()));
    }
    let statement = statement_result.unwrap();
-   // get the expected table structure for this query
-   let v_suppliers_row_struct = db_tables(&query_type.clone());
 
-   // build a DBTable from the query results and the expected table structure 
+   // gets the table structure for this query
+   let v_suppliers_row_struct = db_tables(&query_type.clone()); 
    let table_v_suppliers = response_data_into_db_table(statement, v_suppliers_row_struct);
 
    
    Ok(table_v_suppliers)
 }
 
+// places the query results into a DBTable
 fn response_data_into_db_table(mut statement: Statement, row_structure: DBTableStruct) -> DBTable {
    if statement.column_count() != row_structure.fields.len() {
        println!("statement columns {}, row_structure.fields.len() {}", statement.column_count(), row_structure.fields.len());

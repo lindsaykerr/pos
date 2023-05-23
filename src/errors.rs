@@ -1,3 +1,5 @@
+/// This file contains all the custom errors that can be used.
+
 #[derive(Debug)]
 pub enum ErrorType {
     InvalidPort(String),

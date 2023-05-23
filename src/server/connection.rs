@@ -12,17 +12,17 @@ pub fn connection(mut stream: TcpStream) {
         return;
     }
 
-
-
     // the first line of the http request holds the request line
     let request_line: String = http_request[0].clone();
 
+    // determine the type of api query from the request
     let query = query_from_api_routing(request_line);
     
     let status_line: String; 
     let content: String; 
-    let content_type: String; 
-    if let None = query {
+    let content_type: String;
+
+    if let None = query { 
         content_type = String::from("text/html");
         content = String::from("<p>404 Not Found</p>");
         status_line = "HTTP/1.1 404 NOT FOUND".to_string();
