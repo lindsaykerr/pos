@@ -3,15 +3,6 @@
 version = 3
 
 [[package]]
-name = "Pos"
-version = "0.0.1"
-dependencies = [
- "json",
- "regex",
- "sqlite",
-]
-
-[[package]]
 name = "aho-corasick"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -49,6 +40,15 @@ name = "pkg-config"
 version = "0.3.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
+
+[[package]]
+name = "pos"
+version = "0.0.1"
+dependencies = [
+ "json",
+ "regex",
+ "sqlite",
+]
 
 [[package]]
 name = "regex"

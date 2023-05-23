@@ -6,25 +6,8 @@ pub mod server;
 use server as rest_server;
 use server::socket::assign_socket_addr;
 
-use std::io::{ErrorKind};
+use std::io::ErrorKind;
 
-/*
-#[derive(Debug)]
-pub struct ApiResponse {
-    status: u16,
-    success: bool,
-    payload: String,
-}
-impl ApiResponse {
-    fn new(status: u16, success: bool, payload: String) -> ApiResponse {
-        ApiResponse {
-            status,
-            success,
-            payload,
-        }
-    }
-}
-*/
 
 
 fn main() -> Result<(), ErrorKind>{

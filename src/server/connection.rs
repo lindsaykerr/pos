@@ -1,6 +1,6 @@
-use std::net::{TcpStream};
+use std::net::TcpStream;
 use std::io::{BufReader, prelude::*};
-use crate::server::databases;
+use crate::server::databases::{self, data_structs::Type as DBType};
 use crate::server::api::{api, Query};
 
 pub fn connection(mut stream: TcpStream) {
@@ -19,9 +19,9 @@ pub fn connection(mut stream: TcpStream) {
 
     let query = query_from_api_routing(request_line);
     
-    let mut status_line = String::new();
-    let mut content = String::from("");
-    let mut content_type = String::from("application/json");
+    let status_line: String; 
+    let content: String; 
+    let content_type: String; 
     if let None = query {
         content_type = String::from("text/html");
         content = String::from("<p>404 Not Found</p>");
@@ -40,7 +40,7 @@ pub fn connection(mut stream: TcpStream) {
             },
             _ =>  {
 
-                match databases::process_query(query, databases::Type::Sqlite) {
+                match databases::process_query(query, DBType::Sqlite) {
                     Ok(content_response) => {
                         content = content_response;
                         content_type = String::from("application/json");
