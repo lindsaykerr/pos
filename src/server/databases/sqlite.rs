@@ -13,12 +13,10 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
     let database_path = SQLITE_DB_PATH;
     let connection = open_connection(&database_path)?;
  
-
     let mut json_object = json::object!{
         "code": 200,
         "success": true,
     };
-
 
     // Aids in debugging specific queries
     /* 
@@ -61,7 +59,6 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
             )?;
             */
 
-   
         },
         _ => {
             return Err(DatabaseError::QueryError("Invalid query provided".to_string()));
@@ -70,6 +67,7 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
     }
     Ok(json_object.dump())
 }
+
 
 // database connection
 fn open_connection(database_path: &str) -> Result<Connection, DatabaseError> {
@@ -82,9 +80,10 @@ fn open_connection(database_path: &str) -> Result<Connection, DatabaseError> {
     }
 }
 
-
 fn db_table_from_query(query_type: &Query, connection: &sqlite::Connection, sql_query: &str ) -> Result<DBTable, DatabaseError> {
+
    // try connect to and query the db
+   
    let statement_result = connection.prepare(sql_query.clone());
    if let Err(_e) = statement_result {
        println!("sqlite_DBTable_from_query connection.prepare failed");
@@ -93,6 +92,7 @@ fn db_table_from_query(query_type: &Query, connection: &sqlite::Connection, sql_
    let statement = statement_result.unwrap();
 
    // gets the table structure for this query
+   
    let v_suppliers_row_struct = db_tables(&query_type.clone()); 
    let table_v_suppliers = response_data_into_db_table(statement, v_suppliers_row_struct);
 
@@ -102,6 +102,7 @@ fn db_table_from_query(query_type: &Query, connection: &sqlite::Connection, sql_
 
 // places the query results into a DBTable
 fn response_data_into_db_table(mut statement: Statement, row_structure: DBTableStruct) -> DBTable {
+
    if statement.column_count() != row_structure.fields.len() {
        println!("statement columns {}, row_structure.fields.len() {}", statement.column_count(), row_structure.fields.len());
        panic!("Number of columns in the statement does not match the number of fields in the db table row");
@@ -111,28 +112,33 @@ fn response_data_into_db_table(mut statement: Statement, row_structure: DBTableS
 
    while let Ok(State::Row) = statement.next() { 
 
-
        let mut db_row = DBTableRow::new();
+       
+       // using the row structure as a guide, we can iterate through the required fields in the row
 
        for field in row_structure.fields.iter() {
-           let id = field.column;
+
            let name = field.name.as_str();
-           let a_type = &field.a_type;
+           let field_type = &field.field_type;
            let not_null_flag = field.not_null;
            
-           let value: sqlite::Value = statement.read(id).unwrap();
+           // read a value from a cell within a row using the index of the cell
            
-
+           let value: sqlite::Value = statement.read(field.index).unwrap();  
+           
            // sometimes the value of a db entry may be null, so we need to check for this
-           if not_null_flag && value.kind().eq(&sqlite::Type::Null) {
+           
+           if not_null_flag && value.kind().eq(&sqlite::Type::Null) {  
+
                println!("Database field {} is null, but is not allowed to be", name);
                continue;
            }
-      
-           match a_type {
+        
+           // knowing that the value should be of a certain type, the next step is to convert it 
+           // to that type and add it to a the DBTableRow struct
+
+           match field_type {
                Value::Boolean(_) => {
-               
-      
                    if let Ok(value) = TryFrom::try_from(&value) {
                        let value: i64 = value;
                        if value == 0 {
@@ -146,8 +152,7 @@ fn response_data_into_db_table(mut statement: Statement, row_structure: DBTableS
                        db_row.add_cell(Value::Null);
                    }             
        
-               },
-            
+               }, 
                Value::Float(_) => {
                    if let Ok(value) = TryFrom::try_from(&value) {
                        let value: f64 = value;
@@ -184,20 +189,17 @@ fn response_data_into_db_table(mut statement: Statement, row_structure: DBTableS
                    else {
                        db_row.add_cell(Value::Null);
                    }
-       
                },
                Value::Null => {
+
                    db_row.add_cell(Value::Null);
                }
            }
        }
        db_table.add_row(db_row);
    }
-
    db_table
-
 }
-
 
 // This is used to call a DBRow struct that represents the expected column names 
 // of the tables for a given query request. This is used to help map the sql to another 
@@ -248,6 +250,7 @@ fn db_tables(for_query: &Query) -> DBTableStruct {
                DbFieldStruct::new(0, "supplierId", Value::Integer(0), true));
            supplier_row.fields.push(
                DbFieldStruct::new(1, "phone", Value::String(String::new()), true));
+           
            supplier_row
        },
        _ => DBTableStruct::new()

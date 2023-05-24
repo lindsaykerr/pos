@@ -22,40 +22,35 @@ pub fn connection(mut stream: TcpStream) {
     let content: String; 
     let content_type: String;
 
-    if let None = query { 
-        content_type = String::from("text/html");
-        content = String::from("<p>404 Not Found</p>");
-        status_line = "HTTP/1.1 404 NOT FOUND".to_string();
-    } else {
-        let query = query.unwrap();
-        let query_to_match = query.clone();
-        match query_to_match {
-            Query::ApiDoc => {
-                content_type = String::from("text/html");
-       
-                content = String::from("Api Docs");
-                status_line = "HTTP/1.1 200 OK".to_string();
-          
-          
-            },
-            _ =>  {
-
-                match databases::process_query(query, DBType::Sqlite) {
-                    Ok(content_response) => {
-                        content = content_response;
-                        content_type = String::from("application/json");
-                        status_line = "HTTP/1.1 200 OK".to_string();
-                    },
-                    Err(e) => {
-                        println!("Error: {}", e.message());
-                        content_type = String::from("text/html");
-                        content = String::from("<p>Internal Server Error</p>");
-                        status_line = "HTTP/1.1 500 INTERNAL SERVER ERROR".to_string();
-                    }
-                } 
-            }
+    match query {
+        Some(Query::ApiDoc) => {
+            content_type = String::from("text/html");
+            content = String::from("Api Docs");
+            status_line = "HTTP/1.1 200 OK".to_string();
+        },
+        Some(_) => {
+            let query = query.unwrap();
+            match databases::process_query(query, DBType::Sqlite) {
+                Ok(content_response) => {
+                    content = content_response;
+                    content_type = String::from("application/json");
+                    status_line = "HTTP/1.1 200 OK".to_string();
+                },
+                Err(e) => {
+                    println!("Error: {}", e.message());
+                    content_type = String::from("text/html");
+                    content = String::from("<p>Internal Server Error</p>");
+                    status_line = "HTTP/1.1 500 INTERNAL SERVER ERROR".to_string();
+                }
+            } 
+        },
+        None => {
+            content_type = String::from("text/html");
+            content = String::from("<p>404 Not Found</p>");
+            status_line = "HTTP/1.1 404 NOT FOUND".to_string();
         }
-    };
+        
+    }
     
     // create the response
     let content_length = format!("Content-Length: {}", content.len());

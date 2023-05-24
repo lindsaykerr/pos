@@ -18,18 +18,18 @@ pub enum Value {
 
 /// Represents the characteristics of a field/column in a relational database
 pub struct DbFieldStruct {
-    pub column: usize,
+    pub index: usize,
     pub name: String,
-    pub a_type: Value,
+    pub field_type: Value,
     pub not_null: bool,
 }
 
 impl DbFieldStruct {
     pub fn new(column: usize, name: &str, a_type: Value, not_null: bool) -> DbFieldStruct {
         DbFieldStruct { 
-            column, 
+            index: column, 
             name: name.to_string(), 
-            a_type,
+            field_type: a_type,
             not_null,
         }
     }
@@ -38,9 +38,9 @@ impl DbFieldStruct {
 impl Clone for DbFieldStruct {
     fn clone(&self) -> DbFieldStruct {
         DbFieldStruct {
-            column: self.column,
+            index: self.index,
             name: self.name.clone(),
-            a_type: match &self.a_type {
+            field_type: match &self.field_type {
                 Value::Boolean(b) => Value::Boolean(*b),
                 Value::Binary(b) => Value::Binary(b.clone()),
                 Value::Float(f) => Value::Float(*f),
@@ -79,7 +79,6 @@ impl Clone for DBTableStruct {
         }
     }
 }
-
 
 /// Holds a row of cell data, in a relational database table
 pub struct DBTableRow {
