@@ -136,8 +136,7 @@ fn query_from_uri<'a>(uri: String, path_seg_root: &Box<PathSegment>) -> Option<Q
     for seg in uri_segs {
         
         let seg_copy = seg.clone();
-
-     ;
+ 
 
         match next.move_to_next(seg_copy) {
             Some(seg) => { 
