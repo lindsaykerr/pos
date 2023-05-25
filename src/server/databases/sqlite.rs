@@ -61,7 +61,8 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
 
         },
         _ => {
-            return Err(DatabaseError::QueryError("Invalid query provided".to_string()));
+            let error_message = format!("Query has not been implemented provided: {:?}", query);
+            return Err(DatabaseError::QueryError(error_message));
         }
 
     }

@@ -17,7 +17,7 @@ pub fn connection(mut stream: TcpStream) {
 
     // determine the type of api query from the request
     let query = query_from_api_routing(request_line);
-    
+    println!("query: {:?}", query);
     let status_line: String; 
     let content: String; 
     let content_type: String;
@@ -27,6 +27,17 @@ pub fn connection(mut stream: TcpStream) {
             content_type = String::from("text/html");
             content = String::from("Api Docs");
             status_line = "HTTP/1.1 200 OK".to_string();
+        },
+        Some(Query::NoneApi) => {
+            // TODO: implement some sort of routing for none api requests
+            content_type = String::from("text/html");
+            content = String::from("This page does belong to the api");
+            status_line = "HTTP/1.1 200 OK".to_string();
+        },
+        Some(Query::ApiInvalidUri) => {
+            content_type = String::from("text/html");
+            content = String::from("Invalid API uri");
+            status_line = "HTTP/1.1 400 OK".to_string();
         },
         Some(_) => {
             let query = query.unwrap();
