@@ -82,7 +82,7 @@ impl Clone for DBTableStruct {
 
 /// Holds a row of cell data, in a relational database table
 pub struct DBTableRow {
-    cells: Vec<Value>,
+    pub cells: Vec<Value>,
 }
 impl DBTableRow {
     pub fn new() -> DBTableRow {

@@ -1,8 +1,8 @@
 use crate::server::api::Query;
 use crate::errors::DatabaseError;
 use crate::config::SQLITE_DB_PATH;
-use sqlite::{State, Statement, Connection};
-use json::{self};
+use sqlite::{State, Statement, Connection, RowIndex};
+use json::{self, JsonValue};
 use crate::server::databases::data_structs::{DBTable, DBTableRow, DBTableStruct,  DbFieldStruct, Value};
 
 ///
@@ -60,6 +60,80 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
             */
 
         },
+        Query::GETStockSupplierFromId(id) => {
+                
+            let supplier = db_table_from_query(
+                &query, 
+                &connection, 
+                &format!("SELECT * FROM view_suppliers WHERE id = {}", id)
+            )?;
+
+            if supplier.rows.len() == 0 {
+                return Ok(json_object.dump());
+            }
+
+            let temp_json = supplier.to_json();
+            if !temp_json.is_empty() {
+                json_object["payload"] = temp_json[0].clone();
+            }
+            else {
+                json_object["payload"] = JsonValue::Null;
+            }
+      
+        },
+        Query::GetStockSuppliersEmail => {
+            
+            let v_suppliers_email = db_table_from_query(
+                &query, 
+                &connection, 
+                "SELECT * FROM view_suppliers_email"
+            )?;
+
+            if v_suppliers_email.rows.len() == 0 {
+                return Ok(json_object.dump());
+            }
+
+            json_object["payload"] = v_suppliers_email.to_json();
+        },
+        Query::GetStockSuppliersNumbers => {
+            
+            let v_suppliers_numbers = db_table_from_query(
+                &query, 
+                &connection, 
+                "SELECT * FROM view_suppliers_numbers"
+            )?;
+
+            if v_suppliers_numbers.rows.len() == 0 {
+                return Ok(json_object.dump());
+            }
+
+            json_object["payload"] = v_suppliers_numbers.to_json();
+        },
+        Query::GetStockSupplierIdFromName(ref name) => {
+
+
+            let id = db_table_from_query(
+                &query, 
+                &connection, 
+                &format!("SELECT id FROM view_suppliers WHERE name = '{}'", name)
+            )?;
+
+            if id.rows.len() == 0 {
+                return Ok(json_object.dump());
+            }
+            
+            let json_id_table = id.to_json();
+            
+
+            if json_id_table.is_array() {
+                json_object["payload"] = json_id_table[0].clone();
+                
+            }
+            else {
+                json_object["payload"] = json_id_table;
+            }
+
+        },
         _ => {
             let error_message = format!("Query has not been implemented provided: {:?}", query);
             return Err(DatabaseError::QueryError(error_message));
@@ -94,7 +168,7 @@ fn db_table_from_query(query_type: &Query, connection: &sqlite::Connection, sql_
 
    // gets the table structure for this query
    
-   let v_suppliers_row_struct = db_tables(&query_type.clone()); 
+   let v_suppliers_row_struct = db_tables(query_type.clone()); 
    let table_v_suppliers = response_data_into_db_table(statement, v_suppliers_row_struct);
 
    
@@ -205,9 +279,9 @@ fn response_data_into_db_table(mut statement: Statement, row_structure: DBTableS
 // This is used to call a DBRow struct that represents the expected column names 
 // of the tables for a given query request. This is used to help map the sql to another 
 // data type such as json 
-fn db_tables(for_query: &Query) -> DBTableStruct {
+fn db_tables(for_query: Query) -> DBTableStruct {
    match for_query {
-       Query::GETStockSuppliers => {
+       Query::GETStockSuppliers | Query::GETStockSupplierFromId(_) => {
            let mut supplier_row: DBTableStruct = DBTableStruct::new();
            supplier_row.fields.push(
                DbFieldStruct::new(0, "id", Value::Integer(-1), true));
@@ -252,6 +326,12 @@ fn db_tables(for_query: &Query) -> DBTableStruct {
            supplier_row.fields.push(
                DbFieldStruct::new(1, "phone", Value::String(String::new()), true));
            
+           supplier_row
+       },
+       Query::GetStockSupplierIdFromName(_) => {
+           let mut supplier_row: DBTableStruct = DBTableStruct::new();
+           supplier_row.fields.push(
+               DbFieldStruct::new(0, "id", Value::Integer(0), true));
            supplier_row
        },
        _ => DBTableStruct::new()
