@@ -16,6 +16,22 @@ pub enum Value {
     Null,
 }
 
+impl Value {
+    pub fn to_json(&self) -> JsonValue {
+        match self {
+            Value::Boolean(value) => JsonValue::from(*value),
+            Value::Binary(value) => JsonValue::from(value.clone()),
+            Value::Float(value) => JsonValue::from(*value),
+            Value::Integer(value) => JsonValue::from(*value),
+            Value::String(value) => JsonValue::from(value.clone()),
+            Value::Null => JsonValue::Null,
+            
+        }
+    }
+    
+
+}
+
 /// Represents the characteristics of a field/column in a relational database
 pub struct DbFieldStruct {
     pub index: usize,
@@ -116,6 +132,10 @@ impl DBTable {
         self.rows.push(row);
     }
 
+    pub fn remove_row(&mut self, index: usize) {
+        self.rows.remove(index);
+    }
+
     ///
     /// Converts the table to a json array
     /// 
@@ -137,14 +157,7 @@ impl DBTable {
                 let fields = fields.unwrap();
                 let field_name = fields.name.clone();
           
-                table_row[field_name] = match cell {
-                    Value::Boolean(value) => JsonValue::from(*value),
-                    Value::Binary(value) => JsonValue::from(value.clone()),
-                    Value::Float(value) => JsonValue::from(*value),
-                    Value::Integer(value) => JsonValue::from(*value),
-                    Value::String(value) => JsonValue::from(value.clone()),
-                    Value::Null => JsonValue::Null,
-                }
+                table_row[field_name] = cell.to_json();
             }
             if let Err(result) = json_table.push(table_row) {
                 println!("Error: {}", result);
