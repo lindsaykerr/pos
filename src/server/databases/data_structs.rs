@@ -168,3 +168,35 @@ impl DBTable {
     }
     
 }
+
+pub enum JsonStructType {
+    Table,
+    Object,
+    TableColumn(usize)
+}
+
+pub fn set_json_object(table: &DBTable, json_type: JsonStructType) -> JsonValue {
+    let mut temp_json = table.to_json();
+
+    match json_type {
+        JsonStructType::Table => {
+            return temp_json;
+        },
+        JsonStructType::Object => {
+            if !temp_json.is_empty() {
+                return temp_json[0].clone();
+            }
+            else {
+                return JsonValue::Null;
+            }
+        }
+        JsonStructType::TableColumn(column_index) => {
+            let mut temp_json = JsonValue::new_array();
+            for row in table.rows.iter() {
+                let temp = row.cells[column_index].to_json();
+                temp_json.push(temp);
+            }
+            return temp_json;
+        }
+    }
+}

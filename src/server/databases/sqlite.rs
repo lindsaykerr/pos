@@ -1,10 +1,12 @@
 use crate::server::api::Query;
 use crate::errors::DatabaseError;
 use crate::config::SQLITE_DB_PATH;
-use sqlite::{State, Statement, Connection, RowIndex};
+use sqlite::{Connection};
 use json::{self, JsonValue};
-use crate::server::databases::data_structs::{DBTable, DBTableRow, DBTableStruct,  DbFieldStruct, Value};
-
+use crate::server::databases::data_structs::{
+    Value, JsonStructType, set_json_object
+};
+use crate::server::databases::sqlite_tables::db_table_from_query;
 ///
 /// Queries the sqlite database and returns a response in the form of a json string.
 ///
@@ -15,7 +17,7 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
  
     let mut json_object = json::object!{
         "code": 200,
-        "success": true,
+        "success": false,
     };
 
     // Aids in debugging specific queries
@@ -58,30 +60,22 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
                 return Ok(json_object.dump());
             }
 
-            let mut id: i64 = -1;
-            let mut contact_id: i64 = -1;
-            let mut address_id: i64 = -1;
-            let mut rep_id: i64 = -1;
+      
 
-            if let Value::Integer(supplier_id) = supplier.rows[0].cells[0] {
-                id = supplier_id;
+
+            // setup reply json object
+            json_object["payload"] = json::object! {
+                "id" => id,
+                "name" => supplier.rows[0].cells[1].to_json(),
+                "active" => supplier.rows[0].cells[2].to_json(),
+                "contact" => JsonValue::Null,
+                "rep" => JsonValue::Null,
+                "address" => JsonValue::Null,
             };
-
-            if let Value::Integer(address) = supplier.rows[0].cells[3] {
-                contact_id = address;
-            };
-
-            if let Value::Integer(contact) = supplier.rows[0].cells[4] {
-                address_id = contact;
-            }
-
-            if let Value::Integer(rep) = supplier.rows[0].cells[5] {
-                rep_id = rep;
-            }
             
-            json_object["payload"] = set_json_object(&supplier, JsonStructType::Object);
 
 
+            // using the supplier id, get the associated contact email addresses
             let supplier_email = db_table_from_query(
                 &Query::GetStockSuppliersEmail, 
                 &connection, 
@@ -95,8 +89,7 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
                 );
             }
             
-
-
+            // using the supplier id, get the associated contact phone numbers
             let contact_numbers = db_table_from_query(
                 &Query::GetStockSuppliersNumbers, 
                 &connection, 
@@ -109,7 +102,96 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
                     JsonStructType::TableColumn(1)
                 );
             }
+
+
+            // using the supplier id, get the supplier address information if any
+            let address = db_table_from_query(
+         
+                &Query::GETStockSupplierAddressFromId(id),
+                &connection, 
+                &format!(r"SELECT
+                    address.id, 
+                    address.Line1, 
+                    address.Line2,
+                    address.Town,
+                    address.Council,
+                    address.Postcode
+                FROM address, (
+                    SELECT 
+                        supplier.fk_address as AddressID 
+                        FROM supplier 
+                        WHERE supplier.id = {}
+                ) as sa 
+                WHERE sa.AddressID = address.id; ", id)
+            )?;
+
+            if address.rows.len() > 0 {
+                json_object["payload"]["address"] = set_json_object(&address, JsonStructType::Object);
+                json_object["payload"]["address"].remove("id");
+            }
             
+            // using the supplier id, get the supplier rep information if any
+            let rep = db_table_from_query(
+                &Query::GETStockSupplierRepFromId(id), 
+                &connection, 
+                &format!(r"SELECT
+                    sr.id,
+                    (SELECT 
+                        title 
+                    FROM person_title 
+                    WHERE sr.fk_person_title = person_title.id
+                    ) as Title, 
+                    sr.FirstName,
+                    sr.LastName,
+                    sr.fk_contact as ContactID
+                FROM supply_rep as sr,(
+                    SELECT 
+                        supplier.fk_supply_rep as RepID 
+                    FROM supplier 
+                    WHERE supplier.id = {}
+            ) as s 
+            WHERE s.RepID = sr.id", id)
+            )?;
+
+            if rep.rows.len() > 0 {
+                json_object["payload"]["rep"] = set_json_object(&rep, JsonStructType::Object);
+                json_object["payload"]["rep"].remove("id");
+                json_object["payload"]["rep"].remove("contactId");
+                let rep_contact_id: i64; 
+                if let Value::Integer(x) = rep.rows[0].cells[4] {
+                    rep_contact_id = x;
+                } else {
+                    return Err(DatabaseError::QueryError("Failed to get rep contact id".to_string()));
+                }
+                
+                let contact_email = db_table_from_query(
+                    &Query::GetStockSuppliersEmail, 
+                    &connection, 
+                    &format!("SELECT * FROM view_contact_email WHERE ContactId = {}", rep_contact_id)
+                )?;            
+   
+                if contact_email.rows.len() > 0 {
+                    json_object["payload"]["rep"]["contact"]["email"] = set_json_object(
+                        &contact_email, 
+                        JsonStructType::TableColumn(1)
+                    );
+
+                }
+
+                let contact_numbers = db_table_from_query(
+                    &Query::GetStockSuppliersNumbers, 
+                    &connection, 
+                    &format!("SELECT * FROM view_contact_numbers WHERE ContactId = {}", rep_contact_id)
+                )?; 
+                if contact_numbers.rows.len() > 0 {
+                    json_object["payload"]["rep"]["contact"]["numbers"] = set_json_object(
+                        &contact_email, 
+                        JsonStructType::TableColumn(1)
+                    );
+                }           
+
+            
+            }
 
             
       
@@ -192,28 +274,65 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
             let rep = db_table_from_query(
                 &query, 
                 &connection, 
-                &format!(r"SELECT
-                    supply_rep.id, 
-                    supply_rep.fk_person_title, 
-                    supply_rep.FirstName,
-                    supply_rep.LastName,
-                FROM supply_rep, 
-                
-                
-                (
+                &format!("SELECT
+                    sr.id,
+                    (SELECT 
+                        title 
+                    FROM person_title 
+                    WHERE sr.fk_person_title = person_title.id
+                    ) as Title, 
+                    sr.FirstName,
+                    sr.LastName,
+                    sr.fk_contact as ContactID
+                FROM supply_rep as sr,(
                     SELECT 
-                        supplier.fk_rep as RepID 
-                        FROM supplier 
-                        WHERE supplier.id = {}
-                ) as sr 
-                WHERE sr.RepID = rep.id; ", id)
-            )?;
+                        supplier.fk_supply_rep as RepID 
+                    FROM supplier 
+                    WHERE supplier.id = {}
+            ) as s 
+            WHERE s.RepID = sr.id", id))?;
 
-            if rep.rows.len() == 0 {
-                return Ok(json_object.dump());
+
+            if rep.rows.len() > 0 {
+                json_object["payload"] = set_json_object(&rep, JsonStructType::Object);
+                json_object["payload"].remove("contactId");
+
+                // using the contact id retrieve the contact email addresses and numbers
+                let rep_contact_id: i64; 
+                if let Value::Integer(x) = rep.rows[0].cells[4] {
+                    rep_contact_id = x;
+                } else {
+                    return Err(DatabaseError::QueryError("Failed to get rep contact id".to_string()));
+                }
+                
+                let contact_email = db_table_from_query(
+                    &Query::GetStockSuppliersEmail, 
+                    &connection, 
+                    &format!("SELECT * FROM view_contact_email WHERE ContactId = {}", rep_contact_id)
+                )?;            
+   
+                if contact_email.rows.len() > 0 {
+                    json_object["payload"]["contact"]["email"] = set_json_object(
+                        &contact_email, 
+                        JsonStructType::TableColumn(1)
+                    );
+
+                }
+
+                let contact_numbers = db_table_from_query(
+                    &Query::GetStockSuppliersNumbers, 
+                    &connection, 
+                    &format!("SELECT * FROM view_contact_numbers WHERE ContactId = {}", rep_contact_id)
+                )?; 
+                if contact_numbers.rows.len() > 0 {
+                    json_object["payload"]["contact"]["numbers"] = set_json_object(
+                        &contact_email, 
+                        JsonStructType::TableColumn(1)
+                    );
+                }           
+
+            
             }
-
-            json_object["payload"] = set_json_object(&rep, JsonStructType::Object);
         },
         Query::GETStockSuppliersCategories => {
             
@@ -256,40 +375,16 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
 
 
     }
+    if !json_object["payload"].is_null() {
+        json_object["success"] = json::JsonValue::Boolean(true);
+    }
+
     Ok(json_object.dump())
 }
 
-pub enum JsonStructType {
-    Table,
-    Object,
-    TableColumn(usize)
-}
 
-fn set_json_object(table: &DBTable, json_type: JsonStructType) -> JsonValue {
-    let mut temp_json = table.to_json();
 
-    match json_type {
-        JsonStructType::Table => {
-            return temp_json;
-        },
-        JsonStructType::Object => {
-            if !temp_json.is_empty() {
-                return temp_json[0].clone();
-            }
-            else {
-                return JsonValue::Null;
-            }
-        }
-        JsonStructType::TableColumn(column_index) => {
-            let mut temp_json = JsonValue::new_array();
-            for row in table.rows.iter() {
-                let temp = row.cells[column_index].to_json();
-                temp_json.push(temp);
-            }
-            return temp_json;
-        }
-    }
-}
+
 
 
 // database connection
@@ -303,219 +398,3 @@ fn open_connection(database_path: &str) -> Result<Connection, DatabaseError> {
     }
 }
 
-fn db_table_from_query(query_type: &Query, connection: &sqlite::Connection, sql_query: &str ) -> Result<DBTable, DatabaseError> {
-
-   // try connect to and query the db
-   
-   let statement_result = connection.prepare(sql_query.clone());
-   if let Err(_e) = statement_result {
-       println!("sqlite_DBTable_from_query connection.prepare failed");
-       return Err(DatabaseError::QueryError("Sqlite db query stockItems failed".to_string()));
-   }
-   let statement = statement_result.unwrap();
-
-   // gets the table structure for this query
-   
-   let v_suppliers_row_struct = db_tables(query_type.clone()); 
-   let table_v_suppliers = response_data_into_db_table(statement, v_suppliers_row_struct);
-
-   
-   Ok(table_v_suppliers)
-}
-
-// places the query results into a DBTable
-fn response_data_into_db_table(mut statement: Statement, row_structure: DBTableStruct) -> DBTable {
-
-   if statement.column_count() != row_structure.fields.len() {
-       println!("statement columns {}, row_structure.fields.len() {}", statement.column_count(), row_structure.fields.len());
-       panic!("Number of columns in the statement does not match the number of fields in the db table row");
-   }
-
-   let mut db_table = DBTable::new(&row_structure);
-
-   while let Ok(State::Row) = statement.next() { 
-
-       let mut db_row = DBTableRow::new();
-       
-       // using the row structure as a guide, we can iterate through the required fields in the row
-
-       for field in row_structure.fields.iter() {
-
-           let name = field.name.as_str();
-           let field_type = &field.field_type;
-           let not_null_flag = field.not_null;
-           
-           // read a value from a cell within a row using the index of the cell
-           
-           let value: sqlite::Value = statement.read(field.index).unwrap();  
-           
-           // sometimes the value of a db entry may be null, so we need to check for this
-           
-           if not_null_flag && value.kind().eq(&sqlite::Type::Null) {  
-
-               println!("Database field {} is null, but is not allowed to be", name);
-               continue;
-           }
-        
-           // knowing that the value should be of a certain type, the next step is to convert it 
-           // to that type and add it to a the DBTableRow struct
-
-           match field_type {
-               Value::Boolean(_) => {
-                   if let Ok(value) = TryFrom::try_from(&value) {
-                       let value: i64 = value;
-                       if value == 0 {
-                           db_row.add_cell(Value::Boolean(false));
-                       }
-                       else {
-                           db_row.add_cell(Value::Boolean(true));
-                       }
-                   } 
-                   else {
-                       db_row.add_cell(Value::Null);
-                   }             
-       
-               }, 
-               Value::Float(_) => {
-                   if let Ok(value) = TryFrom::try_from(&value) {
-                       let value: f64 = value;
-                       db_row.add_cell(Value::Float(value));
-                   }
-                   else {
-                       db_row.add_cell(Value::Null);
-                   }
-       
-               },
-               Value::Integer(_) => {
-                   if let Ok(value) = TryFrom::try_from(&value) {
-                       let value: i64 = value;
-                       db_row.add_cell(Value::Integer(value));
-                   }
-                   else {
-                       db_row.add_cell(Value::Null);
-                   }
-               },
-               Value::String(_) => { 
-                   if let Ok(value) = TryFrom::try_from(value) {
-                       let value: String = value;
-                       db_row.add_cell(Value::String(value));
-                   }
-                   else {                        
-                       db_row.add_cell(Value::Null);
-                   }
-               },
-               Value::Binary(_) => {
-                   if let Ok(value) = TryFrom::try_from(value) {
-                       let value: Vec<u8> = value;
-                       db_row.add_cell(Value::Binary(value));
-                   }
-                   else {
-                       db_row.add_cell(Value::Null);
-                   }
-               },
-               Value::Null => {
-
-                   db_row.add_cell(Value::Null);
-               }
-           }
-       }
-       db_table.add_row(db_row);
-   }
-   db_table
-}
-
-// This is used to call a DBRow struct that represents the expected column names 
-// of the tables for a given query request. This is used to help map the sql to another 
-// data type such as json 
-fn db_tables(for_query: Query) -> DBTableStruct {
-    match for_query {
-        Query::GETStockSuppliers | Query::GETStockSupplierFromId(_) => {
-            let mut suppliers: DBTableStruct = DBTableStruct::new();
-            suppliers.fields.push(
-                DbFieldStruct::new(0, "id", Value::Integer(0), true));
-            suppliers.fields.push(
-                DbFieldStruct::new(1, "name", Value::String(String::new()), true));
-            suppliers.fields.push(
-                DbFieldStruct::new(2, "active", Value::Integer(0), true));
-            suppliers.fields.push(
-                DbFieldStruct::new(3, "addressId", Value::Integer(0), false));
-            suppliers.fields.push(
-                DbFieldStruct::new(4, "contactId", Value::Integer(0), true));
-            suppliers.fields.push(
-                DbFieldStruct::new(5, "repId", Value::Integer(0), false));
-            suppliers
-        },
-        Query::GetStockSuppliersEmail => {
-            let mut suppliers_email: DBTableStruct = DBTableStruct::new();
-            suppliers_email.fields.push(
-                DbFieldStruct::new(0, "supplierId", Value::Integer(0), true));
-            suppliers_email.fields.push(
-                DbFieldStruct::new(1, "email", Value::String(String::new()), true));
-            suppliers_email
-        },
-        Query::GetStockSuppliersNumbers => {
-            let mut suppliers_numbers: DBTableStruct = DBTableStruct::new();
-            suppliers_numbers.fields.push(
-                DbFieldStruct::new(0, "supplierId", Value::Integer(0), true));
-            suppliers_numbers.fields.push(
-                DbFieldStruct::new(1, "phone", Value::String(String::new()), true));
-
-            suppliers_numbers
-        },
-        Query::GetStockSupplierIdFromName(_) => {
-            let mut supplier_row: DBTableStruct = DBTableStruct::new();
-            supplier_row.fields.push(
-                DbFieldStruct::new(0, "id", Value::Integer(0), true));
-            supplier_row
-        },
-        Query::GETStockSupplierAddressFromId(_) => {
-            let mut address: DBTableStruct = DBTableStruct::new();
-            address.fields.push(
-              DbFieldStruct::new(0, "id", Value::Integer(0), true));
-            address.fields.push(
-              DbFieldStruct::new(1, "line1", Value::String(String::new()), true));
-            address.fields.push(
-              DbFieldStruct::new(2, "line2", Value::String(String::new()), false));
-            address.fields.push(
-              DbFieldStruct::new(3, "town", Value::String(String::new()), true));
-            address.fields.push(
-              DbFieldStruct::new(4, "council", Value::String(String::new()), false));
-            address.fields.push(
-              DbFieldStruct::new(5, "postCode", Value::String(String::new()), true));
-            address
-        },
-        Query::GETStockSupplierRepFromId(_) => {
-            let mut rep: DBTableStruct = DBTableStruct::new();
-            rep.fields.push(
-              DbFieldStruct::new(0, "id", Value::Integer(0), true));
-            rep.fields.push(
-              DbFieldStruct::new(1, "title", Value::String(String::new()), true));
-            rep.fields.push(
-              DbFieldStruct::new(1, "firstName", Value::String(String::new()), true));
-            rep.fields.push(
-              DbFieldStruct::new(2, "lastName", Value::String(String::new()), true));
-            rep.fields.push(
-              DbFieldStruct::new(3, "contactId", Value::Integer(0), true));
-            rep
-        },
-        Query::GETStockSuppliersCategories => {
-            let mut  categories: DBTableStruct = DBTableStruct::new();
-            categories.fields.push(
-              DbFieldStruct::new(0, "id", Value::Integer(0), true));
-            categories.fields.push(
-              DbFieldStruct::new(1, "categoryType", Value::String(String::new()), true));
-            categories
-
-        },
-        Query::GETStockSupplierSupplyCategories(_) => {
-            let mut supply_categories: DBTableStruct = DBTableStruct::new();
-            supply_categories.fields.push(
-              DbFieldStruct::new(0, "categoryId", Value::Integer(0), true));
-            supply_categories.fields.push(
-              DbFieldStruct::new(1, "category", Value::String(String::new()), true));
-            supply_categories
-        },
-       
-       _ => DBTableStruct::new()
-   }
-}

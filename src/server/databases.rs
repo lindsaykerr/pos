@@ -1,5 +1,6 @@
 pub mod sqlite;
 pub mod data_structs;
+pub mod sqlite_tables;
 
 use crate::server::databases::sqlite::query_for_sqlite_db;
 use crate::server::api::Query;

@@ -16,12 +16,6 @@ pub enum Query {
     //GETStockSupplierContactInfoFromId,
     GETStockSupplierRepFromId(u64),
     GETStockSuppliersCategories,
-    /*GETStockRepIdFromName,
-    GETStockRepInfoFromId,
-    GETStockRepContactInfoFromId,
-    StockItems,
-    StockItemById(u32),
-    */
     ApiInvalidUri,
     NoneApi,
     ApiDoc,
@@ -41,11 +35,6 @@ impl Query {
             //Query::GETStockSupplierContactInfoFromId => Query::GETStockSupplierContactInfoFromId,
             Query::GETStockSupplierRepFromId(id) => Query::GETStockSupplierRepFromId(*id),
             Query::GETStockSuppliersCategories => Query::GETStockSuppliersCategories,
-            /*Query::GETStockRepIdFromName => Query::GETStockRepIdFromName,
-            Query::GETStockRepInfoFromId => Query::GETStockRepInfoFromId,
-            Query::GETStockRepContactInfoFromId => Query::GETStockRepContactInfoFromId,
-            Query::StockItems => Query::StockItems,
-            Query::StockItemById(id) => Query::StockItemById(*id),*/
             Query::ApiInvalidUri => Query::ApiInvalidUri,
             Query::NoneApi => Query::NoneApi,
             Query::ApiDoc => Query::ApiDoc,
@@ -252,6 +241,11 @@ fn query_from_parsed_variables(query: &Query, variables: &Vec<String>) -> Query 
                 response_query = Query::GETStockSupplierAddressFromId(id);
             }
         },
+        Query::GETStockSupplierRepFromId(_) => {
+            if let Ok(id) = variables[0].parse::<u64>() {
+                response_query = Query::GETStockSupplierRepFromId(id);
+            }
+        },
         Query::GETStockSuppliersCategories => {
             response_query = Query::GETStockSuppliersCategories;
         },
@@ -306,6 +300,10 @@ fn get_query_tree(path_seg_root: &mut PathSegment)  {
             // GET /api/supplier/{id}/address query
             let mut supplier_id_address = supplier_id.child_seg_by_value(String::from("address"));
                 supplier_id_address.query = Some(Query::GETStockSupplierAddressFromId(0));
+            
+            // GET /api/supplier/{id}/rep query
+            let mut supplier_id_rep = supplier_id.child_seg_by_value(String::from("rep"));
+                supplier_id_rep.query = Some(Query::GETStockSupplierRepFromId(0));
 
             // GET /api/supplier/{id}/categories query
             let mut supplier_id_categories = supplier_id.child_seg_by_value(String::from("categories"));
