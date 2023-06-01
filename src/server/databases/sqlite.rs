@@ -1,4 +1,4 @@
-use crate::server::api::Query;
+use crate::server::api::query_types::Query;
 use crate::errors::DatabaseError;
 use crate::config::SQLITE_DB_PATH;
 use sqlite::{Connection};
@@ -7,10 +7,12 @@ use crate::server::databases::data_structs::{
     Value, JsonStructType, set_json_object
 };
 use crate::server::databases::sqlite_tables::db_table_from_query;
+
+
 ///
 /// Queries the sqlite database and returns a response in the form of a json string.
 ///
-pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
+pub fn query_to_json(query: Query) -> Result<String, DatabaseError> {
     
     let database_path = SQLITE_DB_PATH;
     let connection = open_connection(&database_path)?;
@@ -33,13 +35,9 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
 
     match query {
 
-        Query::GETStockSuppliers => {
+        Query::GETSuppliers => {
            
-            let table_v_suppliers = db_table_from_query(
-                &query, 
-                &connection, 
-                "SELECT * FROM view_suppliers"
-            )?;
+            let table_v_suppliers = db_table_from_query(&query, &connection)?;
 
             if table_v_suppliers.rows.len() == 0 {
                 return Ok(json_object.dump());
@@ -48,13 +46,9 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
             json_object["payload"] = table_v_suppliers.to_json();
 
         },
-        Query::GETStockSupplierFromId(id) => {
+        Query::GETSupplierFromId(id) => {
                 
-            let supplier = db_table_from_query(
-                &query, 
-                &connection, 
-                &format!("SELECT * FROM view_suppliers WHERE id = {}", id)
-            )?;
+            let supplier = db_table_from_query(&query, &connection)?;
 
             if supplier.rows.len() == 0 {
                 return Ok(json_object.dump());
@@ -77,9 +71,8 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
 
             // using the supplier id, get the associated contact email addresses
             let supplier_email = db_table_from_query(
-                &Query::GetStockSuppliersEmail, 
-                &connection, 
-                &format!("SELECT * FROM view_suppliers_email WHERE supplierId = {}", id)
+                &Query::GETSupplierEmailFromId(id), 
+                &connection
             )?;
 
             if supplier_email.rows.len() > 0 {
@@ -91,9 +84,8 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
             
             // using the supplier id, get the associated contact phone numbers
             let contact_numbers = db_table_from_query(
-                &Query::GetStockSuppliersNumbers, 
+                &Query::GETSupplierNumbersFromId(id), 
                 &connection, 
-                &format!("SELECT * FROM view_suppliers_numbers WHERE supplierId = {}", id)
             )?;
             
             if contact_numbers.rows.len() > 0 {
@@ -106,24 +98,9 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
 
             // using the supplier id, get the supplier address information if any
             let address = db_table_from_query(
-         
-                &Query::GETStockSupplierAddressFromId(id),
+                &Query::GETSupplierAddressFromId(id),
                 &connection, 
-                &format!(r"SELECT
-                    address.id, 
-                    address.Line1, 
-                    address.Line2,
-                    address.Town,
-                    address.Council,
-                    address.Postcode
-                FROM address, (
-                    SELECT 
-                        supplier.fk_address as AddressID 
-                        FROM supplier 
-                        WHERE supplier.id = {}
-                ) as sa 
-                WHERE sa.AddressID = address.id; ", id)
-            )?;
+                )?;
 
             if address.rows.len() > 0 {
                 json_object["payload"]["address"] = set_json_object(&address, JsonStructType::Object);
@@ -132,76 +109,47 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
             
             // using the supplier id, get the supplier rep information if any
             let rep = db_table_from_query(
-                &Query::GETStockSupplierRepFromId(id), 
-                &connection, 
-                &format!(r"SELECT
-                    sr.id,
-                    (SELECT 
-                        title 
-                    FROM person_title 
-                    WHERE sr.fk_person_title = person_title.id
-                    ) as Title, 
-                    sr.FirstName,
-                    sr.LastName,
-                    sr.fk_contact as ContactID
-                FROM supply_rep as sr,(
-                    SELECT 
-                        supplier.fk_supply_rep as RepID 
-                    FROM supplier 
-                    WHERE supplier.id = {}
-            ) as s 
-            WHERE s.RepID = sr.id", id)
+                &Query::GETSupplierRepFromId(id), 
+                &connection
             )?;
 
             if rep.rows.len() > 0 {
                 json_object["payload"]["rep"] = set_json_object(&rep, JsonStructType::Object);
                 json_object["payload"]["rep"].remove("id");
                 json_object["payload"]["rep"].remove("contactId");
-                let rep_contact_id: i64; 
-                if let Value::Integer(x) = rep.rows[0].cells[4] {
-                    rep_contact_id = x;
-                } else {
-                    return Err(DatabaseError::QueryError("Failed to get rep contact id".to_string()));
-                }
                 
-                let contact_email = db_table_from_query(
-                    &Query::GetStockSuppliersEmail, 
-                    &connection, 
-                    &format!("SELECT * FROM view_contact_email WHERE ContactId = {}", rep_contact_id)
-                )?;            
-   
-                if contact_email.rows.len() > 0 {
-                    json_object["payload"]["rep"]["contact"]["email"] = set_json_object(
-                        &contact_email, 
-                        JsonStructType::TableColumn(1)
-                    );
-
+                if let Value::Integer(rep_id) = rep.rows[0].cells[0] {
+                    let email = db_table_from_query(
+                        &Query::GETSupplyRepEmailFromId(rep_id as u64), 
+                        &connection)?;
+        
+                    if email.rows.len() > 0 {
+                        json_object["payload"]["rep"]["contact"]["email"] = set_json_object(
+                            &email, 
+                            JsonStructType::TableColumn(1)
+                        );
+                    }
+        
+                    let numbers = db_table_from_query(
+                        &Query::GETSupplyRepPhoneNumbersFromId(rep_id as u64), 
+                        &connection)?;
+        
+                    if numbers.rows.len() > 0 {
+                        json_object["payload"]["rep"]["contact"]["numbers"] = set_json_object(
+                            &numbers, 
+                            JsonStructType::TableColumn(1)
+                        );
+                    }
                 }
-
-                let contact_numbers = db_table_from_query(
-                    &Query::GetStockSuppliersNumbers, 
-                    &connection, 
-                    &format!("SELECT * FROM view_contact_numbers WHERE ContactId = {}", rep_contact_id)
-                )?; 
-                if contact_numbers.rows.len() > 0 {
-                    json_object["payload"]["rep"]["contact"]["numbers"] = set_json_object(
-                        &contact_email, 
-                        JsonStructType::TableColumn(1)
-                    );
-                }           
-
-            
+               
+                    
             }
-
-            
-      
         },
-        Query::GetStockSuppliersEmail => {
+        Query::GETSuppliersEmail => {
             
             let v_suppliers_email = db_table_from_query(
                 &query, 
-                &connection, 
-                "SELECT * FROM view_suppliers_email"
+                &connection
             )?;
 
             if v_suppliers_email.rows.len() == 0 {
@@ -210,12 +158,11 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
 
             json_object["payload"] = set_json_object(&v_suppliers_email, JsonStructType::Table);
         },
-        Query::GetStockSuppliersNumbers => {
+        Query::GETSuppliersNumbers => {
             
             let v_suppliers_numbers = db_table_from_query(
                 &query, 
-                &connection, 
-                "SELECT * FROM view_suppliers_numbers"
+                &connection
             )?;
 
             if v_suppliers_numbers.rows.len() == 0 {
@@ -224,13 +171,12 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
 
             json_object["payload"] = set_json_object(&v_suppliers_numbers, JsonStructType::Table);
         },
-        Query::GetStockSupplierIdFromName(ref name) => {
+        Query::GETSupplierIdFromName(_) => {
 
 
             let id = db_table_from_query(
                 &query, 
-                &connection, 
-                &format!("SELECT id FROM view_suppliers WHERE name = '{}'", name)
+                &connection
             )?;
 
             if id.rows.len() == 0 {
@@ -241,26 +187,20 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
 
         },
 
-        Query::GETStockSupplierAddressFromId(id) => {
+        Query::GETSupplierNameFromId(_) => {
             
-            let address = db_table_from_query(
-                &query, 
-                &connection, 
-                &format!(r"SELECT
-                    address.id, 
-                    address.Line1, 
-                    address.Line2,
-                    address.Town,
-                    address.Council,
-                    address.Postcode
-                FROM address, (
-                    SELECT 
-                        supplier.fk_address as AddressID 
-                        FROM supplier 
-                        WHERE supplier.id = {}
-                ) as sa 
-                WHERE sa.AddressID = address.id; ", id)
-            )?;
+            let name = db_table_from_query(&query, &connection)?;
+
+            if name.rows.len() == 0 {
+                return Ok(json_object.dump());
+            }
+
+            json_object["payload"] = set_json_object(&name, JsonStructType::Object);
+        },
+
+        Query::GETSupplierAddressFromId(_) => {
+            
+            let address = db_table_from_query(&query, &connection)?;
 
             if address.rows.len() == 0 {
                 return Ok(json_object.dump());
@@ -269,28 +209,9 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
             json_object["payload"] = set_json_object(&address, JsonStructType::Object);
         },
 
-        Query::GETStockSupplierRepFromId(id) => {
+        Query::GETSupplierRepFromId(_) => {
             
-            let rep = db_table_from_query(
-                &query, 
-                &connection, 
-                &format!("SELECT
-                    sr.id,
-                    (SELECT 
-                        title 
-                    FROM person_title 
-                    WHERE sr.fk_person_title = person_title.id
-                    ) as Title, 
-                    sr.FirstName,
-                    sr.LastName,
-                    sr.fk_contact as ContactID
-                FROM supply_rep as sr,(
-                    SELECT 
-                        supplier.fk_supply_rep as RepID 
-                    FROM supplier 
-                    WHERE supplier.id = {}
-            ) as s 
-            WHERE s.RepID = sr.id", id))?;
+            let rep = db_table_from_query(&query, &connection)?;
 
 
             if rep.rows.len() > 0 {
@@ -298,49 +219,39 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
                 json_object["payload"].remove("contactId");
 
                 // using the contact id retrieve the contact email addresses and numbers
-                let rep_contact_id: i64; 
-                if let Value::Integer(x) = rep.rows[0].cells[4] {
-                    rep_contact_id = x;
-                } else {
-                    return Err(DatabaseError::QueryError("Failed to get rep contact id".to_string()));
-                }
-                
-                let contact_email = db_table_from_query(
-                    &Query::GetStockSuppliersEmail, 
-                    &connection, 
-                    &format!("SELECT * FROM view_contact_email WHERE ContactId = {}", rep_contact_id)
-                )?;            
-   
-                if contact_email.rows.len() > 0 {
-                    json_object["payload"]["contact"]["email"] = set_json_object(
-                        &contact_email, 
-                        JsonStructType::TableColumn(1)
-                    );
+               
+                if let Value::Integer(x) = rep.rows[0].cells[0] {
+                    let rep_contact_id: u64 = x as u64;
+        
+                    let contact_email = db_table_from_query(
+                        &Query::GETSupplyRepEmailFromId(rep_contact_id), 
+                        &connection)?;            
+    
+                    if contact_email.rows.len() > 0 {
+                        json_object["payload"]["contact"]["email"] = set_json_object(
+                            &contact_email, 
+                            JsonStructType::TableColumn(1)
+                        );
 
-                }
+                    }
 
-                let contact_numbers = db_table_from_query(
-                    &Query::GetStockSuppliersNumbers, 
-                    &connection, 
-                    &format!("SELECT * FROM view_contact_numbers WHERE ContactId = {}", rep_contact_id)
-                )?; 
-                if contact_numbers.rows.len() > 0 {
-                    json_object["payload"]["contact"]["numbers"] = set_json_object(
-                        &contact_email, 
-                        JsonStructType::TableColumn(1)
-                    );
-                }           
-
-            
+                    let contact_numbers = db_table_from_query(
+                        &Query::GETSupplyRepPhoneNumbersFromId(rep_contact_id), 
+                        &connection)?; 
+                    if contact_numbers.rows.len() > 0 {
+                        json_object["payload"]["contact"]["numbers"] = set_json_object(
+                            &contact_email, 
+                            JsonStructType::TableColumn(1)
+                        );
+                    }
+                }          
             }
         },
-        Query::GETStockSuppliersCategories => {
+        Query::GETSuppliersCategories => {
             
             let categories = db_table_from_query(
                 &query, 
-                &connection, 
-                "SELECT * FROM supply_categories"
-            )?;
+                &connection)?;
 
             if categories.rows.len() == 0 {
                 return Ok(json_object.dump());
@@ -348,25 +259,79 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
 
             json_object["payload"] = set_json_object(&categories, JsonStructType::Table);
         },
-        Query::GETStockSupplierSupplyCategories(id) => {
+        Query::GETSupplierCategoriesFromId(_) => {
             
             let supply_categories = db_table_from_query(
                 &query, 
-                &connection, 
-                &format!(r"SELECT 
-                  s.fk_supply_category as CategoryID,
-                  c.Type as Category
-                FROM supplier_supplies as s 
-                LEFT JOIN supply_categories as c 
-                on s.fk_supply_category = c.id
-                where s.fk_supplier = {}", id)
-            )?;
+                &connection)?;
 
             if supply_categories.rows.len() == 0 {
                 return Ok(json_object.dump());
             }
 
             json_object["payload"] = set_json_object(&supply_categories, JsonStructType::Table);
+        },
+        Query::GETSupplyRepFromId(id) => {
+            
+            let rep = db_table_from_query(
+                &query, 
+                &connection)?;
+
+            if rep.rows.len() == 0 {
+                return Ok(json_object.dump());
+            }
+
+            json_object["payload"] = set_json_object(&rep, JsonStructType::Object);
+
+            json_object["payload"].remove("contactId");
+
+            let email = db_table_from_query(
+                &Query::GETSupplyRepEmailFromId(id), 
+                &connection)?;
+
+            if email.rows.len() > 0 {
+                json_object["payload"]["contact"]["email"] = set_json_object(
+                    &email, 
+                    JsonStructType::TableColumn(1)
+                );
+           
+            }
+
+            let numbers = db_table_from_query(
+                &Query::GETSupplyRepPhoneNumbersFromId(id), 
+                &connection)?;
+
+            if numbers.rows.len() > 0 {
+                json_object["payload"]["contact"]["numbers"] = set_json_object(
+                    &numbers, 
+                    JsonStructType::TableColumn(1)
+                );
+            }
+        },
+
+        Query::GETSupplyRepEmailFromId(_) => {
+            
+            let rep_email = db_table_from_query(
+                &query, 
+                &connection)?;
+
+            if rep_email.rows.len() == 0 {
+                return Ok(json_object.dump());
+            }
+
+            json_object["payload"] = set_json_object(&rep_email, JsonStructType::TableColumn(1));
+        },
+        Query::GETSupplyRepPhoneNumbersFromId(_) => {
+            
+            let rep_numbers = db_table_from_query(
+                &query, 
+                &connection)?;
+
+            if rep_numbers.rows.len() == 0 {
+                return Ok(json_object.dump());
+            }
+
+            json_object["payload"] = set_json_object(&rep_numbers, JsonStructType::TableColumn(1));
         },
         _ => {
             let error_message = format!("Query has not been implemented provided: {:?}", query);
@@ -381,10 +346,6 @@ pub fn query_for_sqlite_db(query: Query) -> Result<String, DatabaseError> {
 
     Ok(json_object.dump())
 }
-
-
-
-
 
 
 // database connection
