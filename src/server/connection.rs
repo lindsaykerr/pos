@@ -1,7 +1,7 @@
 use std::net::TcpStream;
 use std::io::{BufReader, prelude::*};
 use crate::server::databases::{self, data_structs::Type as DBType};
-use crate::server::api::{api, Query};
+use crate::server::api::{api, query_types::Query};
 
 pub fn connection(mut stream: TcpStream) {
     

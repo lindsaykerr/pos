@@ -176,7 +176,7 @@ pub enum JsonStructType {
 }
 
 pub fn set_json_object(table: &DBTable, json_type: JsonStructType) -> JsonValue {
-    let mut temp_json = table.to_json();
+    let temp_json = table.to_json();
 
     match json_type {
         JsonStructType::Table => {
