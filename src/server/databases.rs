@@ -8,7 +8,7 @@ use data_structs::Type;
 use crate::errors::DatabaseError;
 
 
-pub fn process_query(query: Query, db_type: Type) -> Result<String, DatabaseError> {
+pub fn process_query(query: Query, query_content: Option<String>, db_type: Type) -> Result<String, DatabaseError> {
     
     match db_type {
         Type::Sqlite => query_to_json(query),

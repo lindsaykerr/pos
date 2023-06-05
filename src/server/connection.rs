@@ -1,5 +1,9 @@
 use std::net::TcpStream;
 use std::io::{BufReader, prelude::*};
+use std::string;
+use json::{self, JsonValue, };
+use std::time::Duration;
+use std::collections::HashMap;
 use crate::server::databases::{self, data_structs::Type as DBType};
 use crate::server::api::{api, query_types::Query};
 
@@ -8,18 +12,10 @@ pub fn connection(mut stream: TcpStream) {
 
     let http_request = stream_to_request_vec(&mut stream);
     // if for whatever reason the request is empty then simply exit the function
-    if http_request.len() == 0 {
-        return;
-    }
 
-    // the first line of the http request holds the request line
-    let request_line: String = http_request[0].clone();
-
-    // determine the type of api query from the request
-    let query = query_from_api_routing(request_line);
-    println!("query: {:?}", query);
+    let query = http_request.0;
+    let mut content = http_request.1;
     let status_line: String; 
-    let content: String; 
     let content_type: String;
 
     match query {
@@ -41,7 +37,7 @@ pub fn connection(mut stream: TcpStream) {
         },
         Some(_) => {
             let query = query.unwrap();
-            match databases::process_query(query, DBType::Sqlite) {
+            match databases::process_query(query, Some(String::new()), DBType::Sqlite) {
                 Ok(content_response) => {
                     content = content_response;
                     content_type = String::from("application/json");
@@ -74,21 +70,66 @@ pub fn connection(mut stream: TcpStream) {
     
 }
 
-fn stream_to_request_vec(stream: &mut TcpStream) -> Vec<String> {
-    let buf_reader = BufReader::new(stream);
-    let request_vec: Vec<_> = buf_reader.
-        lines().
-        map(|result| {
-            if let Ok(result) = result {
-                result
-            } else {
-                String::from("")
-            }
-        }).
-        take_while(|line| !line.is_empty()).
-        collect();
+fn stream_to_request_vec(stream: &mut TcpStream) -> (Option<Query>, String) {
+    
+    // setting a timeout for the stream is required because there is no EOF for the TcpStream
+    stream.set_read_timeout(Some(Duration::from_millis(500))).expect("Timeout failed to set");
+    let mut buf_reader = BufReader::new(stream);
 
-    request_vec 
+    // string to hold the contents of the stream
+    let mut buffer_string: String = String::from("");
+    buf_reader.read_to_string(&mut buffer_string).expect("Error reading from stream");
+
+    // look for the empty line in an http request and split the request into two parts, the header and the body
+    let request_vec = buffer_string.split_once("\r\n").unwrap();
+    let header_section = request_vec.0.trim().to_string().clone();
+    let mut body_section = request_vec.1.trim().to_string().clone();
+
+    if header_section == "" {
+        return (None, "".to_string());
+    }
+
+    // Create a hashmap which will be used to store the header and body information. The hashmap will be used
+    // because the amount of headers is unknown.
+    let mut request_map = HashMap::new();
+
+    // First get the start line of the request as it is in a different format to the rest of the header
+    let mut header_section: Vec<String> = header_section.split("\r\n").map(|s| s.to_string()).collect();
+    request_map.insert("start line", header_section[0].clone());
+
+    // Then get the rest of the headers and add them to the hashmap
+    for header in &header_section[1..] {
+        let header_parts = header.split_once(":").unwrap();
+        
+        let key = header_parts.0.trim();
+        let value = header_parts.1.trim().to_string();
+        
+        request_map.insert(key, value);
+    }
+
+
+    // get the request method, path and http version from the start line
+    let start_line = request_map.get("start line").unwrap();
+    let start_line_parts: Vec<&str> = start_line.split(" ").collect();
+    let method = start_line_parts[0].trim();
+
+    // get query type
+    let query = query_from_api_routing(request_map.get("start line").unwrap().clone().to_string());
+
+    if method == "PUT" {
+        let ctype = request_map.get("Content-Type");
+        if ctype == Some(&String::from("application/json")) {
+            if let Err(e) = json::parse(&body_section) {
+                body_section = "".to_string();
+            }
+        }
+    }
+
+    let content = body_section;
+
+    return (query, content);
+
+  
 
     // - lines() splits the input into a new line when it comes across a newline byte
     // and returns a collection of lines as an iterator. Each line will be in the form
