@@ -1,7 +1,31 @@
 use crate::server::api::util_structs::PathSegment;
 use crate::server::api::query_types::Query;
 
-pub fn get_query_tree(path_seg_root: &mut PathSegment)  {
+pub struct ApiTree {
+    pub tree: Box<PathSegment>,
+}
+
+impl ApiTree {
+    pub fn new() -> ApiTree {
+
+        // A RESTful API can be thought as a tree like structure
+        // With each part of the uri acting as a branch or node.
+        // In this case let define the root node as "api"
+        let mut root = PathSegment::new(String::from("api"), 0);    
+        
+        // Now we can use the following function to build the remaining structure of the api tree
+        // as it contains all the possible api routes.
+        build_api_tree(&mut root);
+
+        ApiTree {
+            tree: Box::new(root),
+        }
+
+    }
+}
+
+
+fn build_api_tree(path_seg_root: &mut PathSegment)  {
    
    
     // **GET /api/suppliers query/branch

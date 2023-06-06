@@ -5,15 +5,20 @@ pub mod api;
 
 use connection::connection;
 use std::net::{SocketAddr, TcpListener};
+use std::io::ErrorKind;
+use api::routing::ApiTree;
 
 pub fn start(socket_addr: SocketAddr) -> Result<(), std::io::ErrorKind> {
+    // create the api tree, this is used to route the incoming requests
+    let mut api_tree = Box::new(ApiTree::new());
+
     // setup the listener to listen for incoming connections   
     if let Ok(listener) = TcpListener::bind(socket_addr){
       
         for stream in listener.incoming() {
             let stream = stream.unwrap();
         
-            connection(stream);
+            connection(stream, &mut api_tree);
         
         }
         Ok(())

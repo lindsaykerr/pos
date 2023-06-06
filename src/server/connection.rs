@@ -5,16 +5,19 @@ use json::{self, JsonValue, };
 use std::time::Duration;
 use std::collections::HashMap;
 use crate::server::databases::{self, data_structs::Type as DBType};
-use crate::server::api::{api, query_types::Query};
+use crate::server::api::{process_api_query, query_types::{Query, ContentFormat}};
+use crate::server::api::routing::ApiTree;
 
-pub fn connection(mut stream: TcpStream) {
+
+
+
+pub fn connection(mut stream: TcpStream, api_tree: &mut Box<ApiTree>) {
     
 
-    let http_request = stream_to_request_vec(&mut stream);
+    let query = stream_to_request_vec(&mut stream, api_tree);
     // if for whatever reason the request is empty then simply exit the function
 
-    let query = http_request.0;
-    let mut content = http_request.1;
+    let mut content: String = String::new();
     let status_line: String; 
     let content_type: String;
 
@@ -37,7 +40,10 @@ pub fn connection(mut stream: TcpStream) {
         },
         Some(_) => {
             let query = query.unwrap();
-            match databases::process_query(query, Some(String::new()), DBType::Sqlite) {
+            match databases::process_query(
+                query, 
+                DBType::Sqlite,
+                ) {
                 Ok(content_response) => {
                     content = content_response;
                     content_type = String::from("application/json");
@@ -70,7 +76,7 @@ pub fn connection(mut stream: TcpStream) {
     
 }
 
-fn stream_to_request_vec(stream: &mut TcpStream) -> (Option<Query>, String) {
+fn stream_to_request_vec(stream: &mut TcpStream, api_tree: &mut Box<ApiTree>) -> Option<Query> {
     
     // setting a timeout for the stream is required because there is no EOF for the TcpStream
     stream.set_read_timeout(Some(Duration::from_millis(500))).expect("Timeout failed to set");
@@ -86,7 +92,7 @@ fn stream_to_request_vec(stream: &mut TcpStream) -> (Option<Query>, String) {
     let mut body_section = request_vec.1.trim().to_string().clone();
 
     if header_section == "" {
-        return (None, "".to_string());
+        return None;
     }
 
     // Create a hashmap which will be used to store the header and body information. The hashmap will be used
@@ -112,22 +118,33 @@ fn stream_to_request_vec(stream: &mut TcpStream) -> (Option<Query>, String) {
     let start_line = request_map.get("start line").unwrap();
     let start_line_parts: Vec<&str> = start_line.split(" ").collect();
     let method = start_line_parts[0].trim();
+    let path = start_line_parts[1].trim();
 
     // get query type
-    let query = query_from_api_routing(request_map.get("start line").unwrap().clone().to_string());
+    let query_result = process_api_query(path.to_string(), body_section, api_tree);
 
+    if !correct_query_request_method(&query_result.as_ref().unwrap(), &method.to_string()) {
+        return Some(Query::ApiInvalidUri);
+    }
+
+    /*
     if method == "PUT" {
         let ctype = request_map.get("Content-Type");
         if ctype == Some(&String::from("application/json")) {
             if let Err(e) = json::parse(&body_section) {
-                body_section = "".to_string();
+                content.1 = ContentFormat::None;
+            }
+            else {
+                content.0 = body_section;
+                content.1 = ContentFormat::Json;
             }
         }
     }
+    */
 
-    let content = body_section;
 
-    return (query, content);
+
+    query_result
 
   
 
@@ -140,18 +157,52 @@ fn stream_to_request_vec(stream: &mut TcpStream) -> (Option<Query>, String) {
     // - collect() collects the lines from the iterator into http_request
 }
 
-fn query_from_api_routing(request_line: String) -> Option<Query>  {
-    let method_path_regex = regex::Regex::new(r"(GET|PUT|POST|DELETE) +(/.*) +HTTP").unwrap();
-    let mut method: String = String::new();
-    let mut path: String = String::new();
 
-    for capture in method_path_regex.captures_iter(request_line.as_str()) {
-        method = capture[1].to_string();
-        path = capture[2].to_string();
-        break;
+    
+
+
+fn correct_query_request_method(query: &Query, request_method: &String) -> bool {
+
+    let mut return_value = false;
+
+    match query {
+        Query::NoneApi => {
+            return_value = true;
+        },
+        Query::ApiDoc => {
+            return_value = true;
+        },
+        Query::ApiInvalidUri => {
+            return_value = true;
+        },
+        Query::GETSuppliers |
+        Query::GETSuppliersEmail |
+        Query::GETSuppliersNumbers |
+        Query::GETSuppliersCategories |
+    
+        Query::GETSupplierNameFromId(_) |
+        Query::GETSupplierFromId(_) |
+        Query::GETSupplierIdFromName(_) |
+        Query::GETSupplierEmailFromId(_) |
+        Query::GETSupplierNumbersFromId(_) |
+        Query::GETSupplierAddressFromId(_) |
+        Query::GETSupplierCategoriesFromId(_) |
+        Query::GETSupplierRepFromId(_) |
+
+        Query::GETSupplyRepFromId(_) |
+        Query::GETSupplyRepPhoneNumbersFromId(_) |
+        Query::GETSupplyRepEmailFromId(_) => {
+            if request_method.eq(&"GET".to_string()) {
+                return_value = true;
+            }
+            
+        },
+        _ => {
+            println!("Invalid query at validate_query_request_method in connection.rs: {:?}", query);
+        }
+
     }
-
-    api(method, path)
+    return_value
 }
 
 

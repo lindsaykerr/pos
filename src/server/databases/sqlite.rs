@@ -12,7 +12,7 @@ use crate::server::databases::sqlite_tables::db_table_from_query;
 ///
 /// Queries the sqlite database and returns a response in the form of a json string.
 ///
-pub fn query_to_json(query: Query) -> Result<String, DatabaseError> {
+pub fn to_json(query: Query) -> Result<String, DatabaseError> {
     
     let database_path = SQLITE_DB_PATH;
     let connection = open_connection(&database_path)?;

@@ -1,3 +1,28 @@
+use json::JsonValue;
+
+#[derive(Debug)]
+pub enum ContentFormat {
+    Json(JsonValue),
+    Html(String),
+    Text(String),
+    Binary(Vec<u8>),
+    None,
+}
+
+
+
+impl Clone for ContentFormat {
+    fn clone(&self) -> ContentFormat {
+        match self  {
+            ContentFormat::Json(value) => ContentFormat::Json(value.clone()),
+            ContentFormat::Html(value) => ContentFormat::Html(value.clone()),
+            ContentFormat::Text(value) => ContentFormat::Text(value.clone()),
+            ContentFormat::Binary(value) => ContentFormat::Binary(value.clone()),
+            ContentFormat::None => ContentFormat::None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Query {
     GETSuppliers,
@@ -19,13 +44,15 @@ pub enum Query {
     GETSupplyRepPhoneNumbersFromId(u64),
     GETSupplyRepEmailFromId(u64),
 
+    POSTSupplier(ContentFormat),
+
     ApiInvalidUri,
     NoneApi,
     ApiDoc,
 }
 
-impl Query {
-    pub fn clone(&self) -> Query {
+impl Clone for Query {
+    fn clone(&self) -> Query {
         match self {
             Query::GETSuppliers => Query::GETSuppliers,    
             Query::GETSuppliersEmail => Query::GETSuppliersEmail,  
@@ -44,6 +71,9 @@ impl Query {
             Query::GETSupplyRepFromId(id) => Query::GETSupplyRepFromId(*id),
             Query::GETSupplyRepPhoneNumbersFromId(id) => Query::GETSupplyRepPhoneNumbersFromId(*id),
             Query::GETSupplyRepEmailFromId(id) => Query::GETSupplyRepEmailFromId(*id),
+
+            Query::POSTSupplier(content) => Query::POSTSupplier(content.clone()),
+
        
             Query::ApiInvalidUri => Query::ApiInvalidUri,
             Query::NoneApi => Query::NoneApi,

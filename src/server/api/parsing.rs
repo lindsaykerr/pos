@@ -1,11 +1,13 @@
 use crate::server::api::query_types::Query;
 use crate::server::api::util_structs::PathSegment;
+use crate::server::api::query_types::ContentFormat;
 use regex::Regex;
+
 
 // This function uses a tree to validate and parse the api uri resource path
 // It will return a query enum if the uri is valid, otherwise it will return None
 pub fn parse_api_request_to_query(
-    uri: String, 
+    uri: String, content: String, 
     tree_seg_root: &Box<PathSegment>
 ) -> Option<Query> {
 
@@ -55,6 +57,10 @@ pub fn parse_api_request_to_query(
                 continue;
             }
             else if let Some(query) = &next.query {
+                // request body content will always be the last value to be pushed to the variables vector
+                if !content.is_empty() {
+                    variables.push(content);
+                }
                 return Some(query_from_parsed_variables(query, &variables));
             }
 
@@ -72,6 +78,10 @@ pub fn parse_api_request_to_query(
                 continue;
             }
             else if let Some(query) = &next.query {
+                // request body content will always be the last value to be pushed to the variables vector
+                if !content.is_empty() {
+                    variables.push(content);
+                }
                 return Some(query_from_parsed_variables(query, &variables));
             }
             
@@ -84,7 +94,10 @@ pub fn parse_api_request_to_query(
             
             // see if the current segment has a query associated with it
             if let Some(query) = &tree_seg.query {
-                
+                // request body content will always be the last value to be pushed to the variables vector
+                if !content.is_empty() {
+                    variables.push(content);
+                }
                 return Some(query_from_parsed_variables(query, &variables));
             }
             
@@ -183,7 +196,15 @@ fn query_from_parsed_variables(query: &Query, variables: &Vec<String>) -> Query 
             }
         },
 
-        _ => panic!("query_add_variables: query not found: {:?}", query),
+        // POST supplier
+        Query::POSTSupplier(_) => {
+            let json_body = json::parse(&variables[0].clone());
+            if json_body.is_ok() {
+                response_query = Query::POSTSupplier(ContentFormat::Json(json_body.unwrap()));
+            }     
+        },
+
+        _ => panic!("Query has not been implemented at query_add_variables in parsing.rs {:?}", query),
     }
     response_query
 }
