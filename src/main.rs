@@ -6,11 +6,13 @@ pub mod server;
 use server as rest_server;
 use server::socket::assign_socket_addr;
 
-use std::io::ErrorKind;
+use server::api::routing::ApiTree;
 
 
 
 fn main() -> Result<(), ErrorKind>{
+
+
     
     // there should be one of two arguments provided, the first is the ip address and the second is the port number
     let args: Vec<_> = std::env::args().collect();
@@ -24,7 +26,8 @@ fn main() -> Result<(), ErrorKind>{
         print!("Error: {}", e.message());
         return Err(ErrorKind::AddrNotAvailable);
     }
-    
+
+   
     // start the server
     rest_server::start(socket_addr.unwrap())?;
     
