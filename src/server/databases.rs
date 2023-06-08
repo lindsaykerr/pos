@@ -1,5 +1,6 @@
 pub mod sqlite;
 pub mod data_structs;
+pub mod sqlite_query;
 pub mod sqlite_tables;
 
 use crate::server::databases::sqlite::to_json;

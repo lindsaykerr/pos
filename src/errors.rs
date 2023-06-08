@@ -22,6 +22,7 @@ impl ErrorType {
 pub enum DatabaseError {
     ConnectionError(String),
     QueryError(String),
+    SubmissionError(String),
     NotImplemented(String),
 }
 impl DatabaseError {
@@ -30,6 +31,7 @@ impl DatabaseError {
             DatabaseError::ConnectionError(ref s) => s,
             DatabaseError::QueryError(ref s) => s,
             DatabaseError::NotImplemented(ref s) => s,
+            DatabaseError::SubmissionError(ref s) => s,
         }
     }
 }

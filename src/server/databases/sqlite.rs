@@ -6,7 +6,7 @@ use json::{self, JsonValue};
 use crate::server::databases::data_structs::{
     Value, JsonStructType, set_json_object
 };
-use crate::server::databases::sqlite_tables::db_table_from_query;
+use crate::server::databases::sqlite_query::db_table_from_query;
 
 
 ///
@@ -336,6 +336,10 @@ pub fn to_json(query: Query) -> Result<String, DatabaseError> {
         _ => {
             let error_message = format!("Query has not been implemented provided: {:?}", query);
             return Err(DatabaseError::QueryError(error_message));
+        }
+        Query::POSTSupplier(_) => {
+
+
         }
 
 
