@@ -1,5 +1,4 @@
 use crate::server::api::query_types::Query;
-use crate::server::api::util_structs::PathSegment;
 use crate::server::api::query_types::ContentFormat;
 use regex::Regex;
 
@@ -105,6 +104,18 @@ pub fn query_with_path_variables(query: &Query, variables: &Vec<String>) -> Quer
 }
 
 
+fn uri_seg_decode(uri: &str) -> String {
+    let mut uri = uri.to_string();
+    let special_regex = Regex::new(r"(%[0-9A-Fa-f]{2})").unwrap();
+    for cap in special_regex.captures_iter(&uri.clone()) {
+        let special = cap.get(1).unwrap().as_str();
+        let special = special.replace("%", "");
+        let special = u8::from_str_radix(&special, 16).unwrap();
+        let special = special as char;
+        uri = uri.replace(cap.get(1).unwrap().as_str(), &special.to_string());
+    }
+    uri
+}
 
 
 

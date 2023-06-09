@@ -1,5 +1,75 @@
 use crate::server::databases::data_structs::{DBTableStruct, DbFieldStruct};
 use crate::server::databases::data_structs::Value;
+use crate::server::api::query_types::Query;
+
+// Get the correct table structure for GET requests
+pub fn get_tables(for_query: Query) -> DBTableStruct {
+    match for_query {
+        Query::GETSuppliers | Query::GETSupplierFromId(_) => {
+            supplier_table()
+        },
+        Query::GETSuppliersEmail | Query::GETSupplierEmailFromId(_) => {
+            email_table()
+        },
+        Query::GETSuppliersNumbers | Query::GETSupplierNumbersFromId(_) => {
+            numbers_table()
+        },
+        Query::GETSupplierIdFromName(_) => {
+            id_table()
+        },
+        Query::GETSupplierNameFromId(_) => {
+            supplier_name_table()
+        },
+    
+        Query::GETSupplierAddressFromId(_) => {
+            address_table()
+        },
+
+        Query::GETSupplierRepFromId(_) => {
+            rep_table()
+        },
+        Query::GETSuppliersCategories => {
+            categories_table()
+
+        },
+        Query::GETSupplyRepFromId(_) => {
+            let mut rep: DBTableStruct = DBTableStruct::new();
+            
+            rep.fields.push(
+            DbFieldStruct::new(0, "title", Value::String(String::new()), true));
+            rep.fields.push(
+            DbFieldStruct::new(1, "firstName", Value::String(String::new()), true));
+            rep.fields.push(
+            DbFieldStruct::new(2, "lastName", Value::String(String::new()), true));
+            rep.fields.push(
+            DbFieldStruct::new(3, "contactId", Value::Integer(0), true));
+            rep
+        },
+        Query::GETSupplierCategoriesFromId(_) => {
+            categories_table()
+        },
+        Query::GETSupplyRepPhoneNumbersFromId(_) => {
+            numbers_table()
+        },
+        Query::GETSupplyRepEmailFromId(_) => {
+            email_table()
+        },
+    
+    _ => DBTableStruct::new()
+    }
+}
+
+// Tables for the sqlite database, are represented by DBTableStruct's
+// held within each table function.
+//
+// They represent the tables and views that can be called from the database
+// Each table has a set of fields that relate to a tables column.
+// In doing so the correct table column properties found within the db can be 
+// mapped to the correct field in the struct. The field name given is that of
+// the expected json object key, and not the column name in the database. 
+//
+// These tables can be used to validate incoming json objects, and format outgoing
+// ones.
 
 pub fn supplier_table() -> DBTableStruct {
     let mut suppliers: DBTableStruct = DBTableStruct::new();

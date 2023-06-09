@@ -194,7 +194,7 @@ pub fn set_json_object(table: &DBTable, json_type: JsonStructType) -> JsonValue 
             let mut temp_json = JsonValue::new_array();
             for row in table.rows.iter() {
                 let temp = row.cells[column_index].to_json();
-                temp_json.push(temp);
+                temp_json.push(temp).expect("Error adding column to json object");
             }
             return temp_json;
         }
