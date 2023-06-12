@@ -1,7 +1,7 @@
 use json::JsonValue;
 
 #[derive(Debug)]
-pub enum ContentFormat {
+pub enum Content {
     Json(JsonValue),
     Html(String),
     Text(String),
@@ -11,14 +11,14 @@ pub enum ContentFormat {
 
 
 
-impl Clone for ContentFormat {
-    fn clone(&self) -> ContentFormat {
+impl Clone for Content {
+    fn clone(&self) -> Content {
         match self  {
-            ContentFormat::Json(value) => ContentFormat::Json(value.clone()),
-            ContentFormat::Html(value) => ContentFormat::Html(value.clone()),
-            ContentFormat::Text(value) => ContentFormat::Text(value.clone()),
-            ContentFormat::Binary(value) => ContentFormat::Binary(value.clone()),
-            ContentFormat::None => ContentFormat::None,
+            Content::Json(value) => Content::Json(value.clone()),
+            Content::Html(value) => Content::Html(value.clone()),
+            Content::Text(value) => Content::Text(value.clone()),
+            Content::Binary(value) => Content::Binary(value.clone()),
+            Content::None => Content::None,
         }
     }
 }
@@ -44,7 +44,7 @@ pub enum Query {
     GETSupplyRepPhoneNumbersFromId(u64),
     GETSupplyRepEmailFromId(u64),
 
-    POSTSupplier(ContentFormat),
+    POSTSupplier(Content),
 
     ApiInvalidUri,
     NoneApi,

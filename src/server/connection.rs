@@ -4,18 +4,18 @@ use std::io::{BufReader, prelude::*};
 use json;
 use std::time::Duration;
 use std::collections::HashMap;
-use crate::server::api::{uri_to_api_query, query_types::{Query, ContentFormat}};
+use crate::server::api::{uri_to_api_query, query_types::{Query, Content}};
 use crate::server::api::routing::ApiTree;
 use crate::server::process_query;
 
 use super::api::query_types;
 
 pub struct Request {
-    method: String,
-    path: String,
-    http_version: String,
-    headers: HashMap<String, String>,
-    body: query_types::ContentFormat,
+    pub method: String,
+    pub path: String,
+    pub http_version: String,
+    pub headers: HashMap<String, String>,
+    pub body: query_types::Content,
 }
 
 
@@ -105,7 +105,7 @@ fn stream_to_request(stream: &mut TcpStream) -> Option<Request> {
         path: String::new(),
         http_version: String::new(),
         headers: HashMap::new(),
-        body: ContentFormat::None,
+        body: Content::None,
     };
 
 
@@ -181,10 +181,10 @@ fn stream_to_request(stream: &mut TcpStream) -> Option<Request> {
             "application/json" => {
                 let parsed = json::parse(&body_section);
                 if let Ok(parsed) = parsed {
-                    request_struct.body = ContentFormat::Json(parsed);
+                    request_struct.body = Content::Json(parsed);
                 }
                 else {
-                    request_struct.body = ContentFormat::None;
+                    request_struct.body = Content::None;
                     println!("Error: Failed to parse json body");
 
                 }

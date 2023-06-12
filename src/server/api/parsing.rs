@@ -1,5 +1,5 @@
 use crate::server::api::query_types::Query;
-use crate::server::api::query_types::ContentFormat;
+use crate::server::api::query_types::Content;
 use regex::Regex;
 
 
@@ -94,7 +94,7 @@ pub fn query_with_path_variables(query: &Query, variables: &Vec<String>) -> Quer
         Query::POSTSupplier(_) => {
             let json_body = json::parse(&variables[0].clone());
             if json_body.is_ok() {
-                response_query = Query::POSTSupplier(ContentFormat::Json(json_body.unwrap()));
+                response_query = Query::POSTSupplier(Content::Json(json_body.unwrap()));
             }     
         },
 

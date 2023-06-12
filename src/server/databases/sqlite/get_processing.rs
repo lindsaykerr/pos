@@ -2,13 +2,13 @@ use crate::errors::DatabaseError;
 use crate::server::api::query_types::Query;
 use crate::server::databases::data_structs::{DBTable, DBTableStruct, DBTableRow, Value};
 use crate::server::databases::sqlite::sqlite_tables;
-use crate::server::databases::sqlite::get_queries;
+use crate::server::databases::sqlite::get_sql_queries;
 use sqlite::{self, Statement, State};
 
 pub fn dbtable_from_query(query_type: &Query, connection: &sqlite::Connection) -> Result<DBTable, DatabaseError> {
 
     // try connect to and query the db
-    let query = get_queries::get_sql(query_type);
+    let query = get_sql_queries::get_sql(query_type);
     //println!("sql query: {}", query);
     let statement_result = connection.prepare(query.as_str());
     if let Err(_e) = statement_result {

@@ -1,6 +1,9 @@
 use crate::server::databases::data_structs::{DBTableStruct, DbFieldStruct};
 use crate::server::databases::data_structs::Value;
 use crate::server::api::query_types::Query;
+use crate::server::databases::config;
+
+use crate::server::databases::config::DATA_FIELD;
 
 // Get the correct table structure for GET requests
 pub fn get_tables(for_query: Query) -> DBTableStruct {
@@ -36,13 +39,13 @@ pub fn get_tables(for_query: Query) -> DBTableStruct {
             let mut rep: DBTableStruct = DBTableStruct::new();
             
             rep.fields.push(
-            DbFieldStruct::new(0, "title", Value::String(String::new()), true));
+            DbFieldStruct::new(0, &DATA_FIELD.title, Value::String(String::new()), true));
             rep.fields.push(
-            DbFieldStruct::new(1, "firstName", Value::String(String::new()), true));
+            DbFieldStruct::new(1, &DATA_FIELD.first_name, Value::String(String::new()), true));
             rep.fields.push(
-            DbFieldStruct::new(2, "lastName", Value::String(String::new()), true));
+            DbFieldStruct::new(2, &DATA_FIELD.last_name, Value::String(String::new()), true));
             rep.fields.push(
-            DbFieldStruct::new(3, "contactId", Value::Integer(0), true));
+            DbFieldStruct::new(3, &DATA_FIELD.contact_id, Value::Integer(0), true));
             rep
         },
         Query::GETSupplierCategoriesFromId(_) => {
@@ -74,89 +77,89 @@ pub fn get_tables(for_query: Query) -> DBTableStruct {
 pub fn supplier_table() -> DBTableStruct {
     let mut suppliers: DBTableStruct = DBTableStruct::new();
     suppliers.fields.push(
-        DbFieldStruct::new(0, "id", Value::Integer(0), true));
+        DbFieldStruct::new(0, &DATA_FIELD.id, Value::Integer(0), true));
     suppliers.fields.push(
-        DbFieldStruct::new(1, "name", Value::String(String::new()), true));
+        DbFieldStruct::new(1, &DATA_FIELD.name, Value::String(String::new()), true));
     suppliers.fields.push(
-        DbFieldStruct::new(2, "active", Value::Integer(0), true));
+        DbFieldStruct::new(2, &DATA_FIELD.active, Value::Integer(0), true));
     suppliers.fields.push(
-        DbFieldStruct::new(3, "addressId", Value::Integer(0), false));
+        DbFieldStruct::new(3, &DATA_FIELD.address_id, Value::Integer(0), false));
     suppliers.fields.push(
-        DbFieldStruct::new(4, "contactId", Value::Integer(0), true));
+        DbFieldStruct::new(4, &DATA_FIELD.contact_id, Value::Integer(0), true));
     suppliers.fields.push(
-        DbFieldStruct::new(5, "repId", Value::Integer(0), false));
+        DbFieldStruct::new(5, &DATA_FIELD.rep_id, Value::Integer(0), false));
     suppliers
 }
 
 pub fn email_table() -> DBTableStruct {
     let mut suppliers_email: DBTableStruct = DBTableStruct::new();
     suppliers_email.fields.push(
-        DbFieldStruct::new(0, "id", Value::Integer(0), true));
+        DbFieldStruct::new(0, &DATA_FIELD.id , Value::Integer(0), true));
     suppliers_email.fields.push(
-        DbFieldStruct::new(1, "email", Value::String(String::new()), true));
+        DbFieldStruct::new(1, &DATA_FIELD.email, Value::String(String::new()), true));
     suppliers_email
 }
 
 pub fn numbers_table() -> DBTableStruct {
     let mut suppliers_numbers: DBTableStruct = DBTableStruct::new();
     suppliers_numbers.fields.push(
-        DbFieldStruct::new(0, "id", Value::Integer(0), true));
+        DbFieldStruct::new(0, &DATA_FIELD.id, Value::Integer(0), true));
     suppliers_numbers.fields.push(
-        DbFieldStruct::new(1, "number", Value::String(String::new()), true));
+        DbFieldStruct::new(1, &DATA_FIELD.number, Value::String(String::new()), true));
     suppliers_numbers
 }
 
 pub fn id_table() -> DBTableStruct {
     let mut id: DBTableStruct = DBTableStruct::new();
     id.fields.push(
-        DbFieldStruct::new(0, "id", Value::Integer(0), true));
+        DbFieldStruct::new(0, &DATA_FIELD.id, Value::Integer(0), true));
     id
 }
 
 pub fn supplier_name_table() -> DBTableStruct {
     let mut supplier_name: DBTableStruct = DBTableStruct::new();
     supplier_name.fields.push(
-        DbFieldStruct::new(0, "name", Value::String(String::new()), true));
+        DbFieldStruct::new(0, &DATA_FIELD.name, Value::String(String::new()), true));
     supplier_name
 }
 
 pub fn address_table() -> DBTableStruct {
     let mut address: DBTableStruct = DBTableStruct::new();
     address.fields.push(
-        DbFieldStruct::new(0, "id", Value::Integer(0), true));
+        DbFieldStruct::new(0, &DATA_FIELD.id, Value::Integer(0), true));
     address.fields.push(
-        DbFieldStruct::new(1, "line1", Value::String(String::new()), true));
+        DbFieldStruct::new(1, &DATA_FIELD.address_line1, Value::String(String::new()), true));
     address.fields.push(
-        DbFieldStruct::new(2, "line2", Value::String(String::new()), false));
+        DbFieldStruct::new(2, &DATA_FIELD.address_line2, Value::String(String::new()), false));
     address.fields.push(
-        DbFieldStruct::new(3, "town", Value::String(String::new()), true));
+        DbFieldStruct::new(3, &DATA_FIELD.address_town, Value::String(String::new()), true));
     address.fields.push(
-        DbFieldStruct::new(4, "council", Value::String(String::new()), false));
+        DbFieldStruct::new(4, &DATA_FIELD.address_council, Value::String(String::new()), false));
     address.fields.push(
-        DbFieldStruct::new(5, "postCode", Value::String(String::new()), true));
+        DbFieldStruct::new(5, &DATA_FIELD.address_postcode, Value::String(String::new()), true));
     address
 }
 
 pub fn rep_table() -> DBTableStruct {
     let mut rep: DBTableStruct = DBTableStruct::new();
     rep.fields.push(
-        DbFieldStruct::new(0, "id", Value::Integer(0), true));
+        DbFieldStruct::new(0, &DATA_FIELD.id, Value::Integer(0), true));
     rep.fields.push(
-        DbFieldStruct::new(1, "title", Value::String(String::new()), true));
+        DbFieldStruct::new(1, &DATA_FIELD.title, Value::String(String::new()), true));
     rep.fields.push(
-        DbFieldStruct::new(2, "firstName", Value::String(String::new()), true));
+        DbFieldStruct::new(2, &DATA_FIELD.first_name, Value::String(String::new()), true));
     rep.fields.push(
-        DbFieldStruct::new(3, "lastName", Value::String(String::new()), true));
+        DbFieldStruct::new(3, &DATA_FIELD.last_name, Value::String(String::new()), true));
     rep.fields.push(
-        DbFieldStruct::new(4, "contactId", Value::Integer(0), true));
+        DbFieldStruct::new(4, &DATA_FIELD.contact_id, Value::Integer(0), true));
     rep
 }
 
 pub fn categories_table() -> DBTableStruct {
     let mut supplier_categories: DBTableStruct = DBTableStruct::new();
     supplier_categories.fields.push(
-        DbFieldStruct::new(0, "id", Value::Integer(0), true));
+        DbFieldStruct::new(0, &DATA_FIELD.id, Value::Integer(0), true));
     supplier_categories.fields.push(
-        DbFieldStruct::new(1, "category", Value::String(String::new()), true));
+        DbFieldStruct::new(1, &DATA_FIELD.category_type, Value::String(String::new()), true));
     supplier_categories
 }

@@ -52,6 +52,16 @@ pub fn get_request(query: Query, request: Request) -> (String, String, String) {
 
 
 pub fn post_request(query: Query, request: Request) -> (String, String, String) {
+    let result: Result<String,DatabaseError>;
+
+    match query {
+        Query::POSTSupplier(content) => {
+            result = sqlite::post_request(query, request.body);
+        },
+        _ => {
+            panic!("Invalid POST query: {:?}", query);
+        }
+    }
     (String::from("content"), String::from("content_type"), String::from("status_line"))
 
 }
