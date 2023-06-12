@@ -1,9 +1,87 @@
 use crate::errors::DatabaseError;
-use crate::server::api::query_types::{Query, ContentFormat};
+use crate::server::api::query_types::{Query, Content};
+use crate::server::databases::data_structs::{DBTableStruct, Value};
+use crate::server::databases::sqlite::util;
+use std::collections::HashMap;
+use json::JsonValue;
 use sqlite;
 // use crate::server::databases::sqlite::sqlite_tables;
 
+// uses a json object to populate a hashmap that represents a the value for a entry on a SQL table
+pub fn extract_json_to_table(data: &JsonValue, table_ref: DBTableStruct) -> Result<HashMap<String, Value>, DatabaseError> {
+
+
+    let mut table = HashMap::new();
+    
+    // loop through the fields in the table structure, they hold the expected type and name of a SQL field
+    for field in table_ref.fields {
+        
+        // check if the json object has a valid field 
+        if data.has_key(field.name.as_str()) {
+
+            // get the value of the field from the json object
+            let value = data[field.name.as_str()];
+            match field.field_type {
+                Value::Integer(_) => {
+                    // parse the value into the expected type
+                    let value = value.as_i64();
+                    if let Some(value) = value {
+                        table[&field.name] = Value::Integer(value);
+                    } else {
+                        return Err(DatabaseError::SubmissionError("Error parsing integer from json object".to_string()));
+                    }
+                },
+                Value::String(_) => {
+                    let value = value.as_str();
+                    if let Some(value) = value {
+                        table[&field.name] = Value::String(value.to_string());
+                    } else {
+                        return Err(DatabaseError::SubmissionError("Error parsing string from json object".to_string()));
+                    }
+                },
+                Value::Binary(_) => {
+                    let value = value.as_str();
+                    if let Some(value) = value {
+                        let value: Vec<u8> = value.as_bytes().to_vec();
+               
+                        table[&field.name] = Value::Binary(value);
+              
+                    } else {
+                        return Err(DatabaseError::SubmissionError("Error parsing binary from json object".to_string()));
+                    }
+                },
+                Value::Boolean(_) => {
+                    let value = value.as_bool();
+                    if let Some(value) = value {
+                        table[&field.name] = Value::Boolean(value);
+                    } else {
+                        return Err(DatabaseError::SubmissionError("Error parsing boolean from json object".to_string()));
+                    }
+                },
+                Value::Float(_) => {
+                    let value = value.as_f64();
+                    if let Some(value) = value {
+                        table[&field.name] = Value::Float(value);
+                    } else {
+                        return Err(DatabaseError::SubmissionError("Error parsing float from json object".to_string()));
+                    }
+                },
+                Value::Null => {
+                    table[&field.name] = Value::Null;
+                }
+
+            }
+        } else {
+            if field.not_null {
+                return Err(DatabaseError::SubmissionError("Required field missing from json object".to_string()));
+            }
+        }
+    } 
+   Ok(table)   
+}
+
 pub fn post_request_to_db(query: &Query, connection: &sqlite::Connection) -> Result<(), DatabaseError> {
+
     
     /*match query {
         Query::POSTSupplier(content) => {
