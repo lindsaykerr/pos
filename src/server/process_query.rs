@@ -52,10 +52,10 @@ pub fn get_request(query: Query, request: Request) -> (String, String, String) {
 
 
 pub fn post_request(query: Query, request: Request) -> (String, String, String) {
-    let result: Result<String,DatabaseError>;
+    let mut result: Result<String,DatabaseError>;
 
-    match query {
-        Query::POSTSupplier(content) => {
+    match &query {
+        Query::POSTSupplier(_) => {
             result = sqlite::post_request(query, request.body);
         },
         _ => {

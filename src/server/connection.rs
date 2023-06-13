@@ -38,6 +38,8 @@ pub fn connection(mut stream: TcpStream, api_tree: &mut Box<ApiTree>) {
     let response_status_line: String; 
     let response_content_type: String;
 
+
+    // Valid and Invalid API URIs will respond in a json content type  
     match some_query {
         Some(Query::ApiDoc) => {
             response_content_type = String::from("text/html");
@@ -51,7 +53,11 @@ pub fn connection(mut stream: TcpStream, api_tree: &mut Box<ApiTree>) {
             response_status_line = "HTTP/1.1 200 OK".to_string();
         },
         Some(Query::ApiInvalidUri) => {
-            response_content_type = String::from("text/html");
+            response_content_type = String::from("application/json");
+
+            let response = json::object!{
+                "error" => "Invalid API uri"
+            };
             response_content = String::from("Invalid API uri");
             response_status_line = "HTTP/1.1 400 OK".to_string();
         },

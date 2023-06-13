@@ -8,7 +8,9 @@ use connection::connection;
 use std::net::{SocketAddr, TcpListener};
 use api::routing::ApiTree;
 
+
 pub fn start(socket_addr: SocketAddr) -> Result<(), std::io::ErrorKind> {
+   
     // create the api tree, this is used to route the incoming requests
     let mut api_tree = Box::new(ApiTree::new());
 

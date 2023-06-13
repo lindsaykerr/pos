@@ -6,9 +6,8 @@ pub mod post_processing;
 pub mod util;
 
 
-use crate::server::api::query_types::Content;
-use crate::server::{api::query_types::Query, connection::Request};
-use crate::server::databases::config::DATA_FIELD;
+use crate::server::api::query_types::{Content, Query};
+use crate::server::databases::config::data_keys;
 use crate::errors::DatabaseError;
 use crate::config::SQLITE_DB_PATH;
 
@@ -28,7 +27,7 @@ pub fn get_request(query: Query) -> Result<String, DatabaseError> {
 }
 
 pub fn post_request(query: Query, body: Content) -> Result<String, DatabaseError> {
-    let mut json_response: JsonValue = json::object!{};
+    let json_response: JsonValue;
     match body {
         Content::Json(content) => {
             json_response = from_json(query, content)?;
@@ -42,11 +41,46 @@ pub fn post_request(query: Query, body: Content) -> Result<String, DatabaseError
     Ok(json_response.dump())
 }
 
-fn from_json(_query: Query, body_content: JsonValue) -> Result<JsonValue, DatabaseError> {
-    Ok(json::object!{
+fn from_json(query: Query, body_content: JsonValue) -> Result<JsonValue, DatabaseError> {
+    let database_path = SQLITE_DB_PATH;
+    let connection = open_connection(&database_path)?;
+    let mut json_object = json::object!{
         "code": 200,
         "success": false,
-    })
+    };
+
+    match query {
+        Query::POSTSupplier(_) => {
+
+            // get the table structure of the supplier table which matches the sqlite db table
+            let supplier_table = sqlite_tables::post_tables(query.clone());
+            
+            // get the values needed to insert and entry into the supplier table
+            if let Ok(value_map) = post_processing::extract_json_to_table(&body_content, supplier_table) {
+
+                // using those values build the SQL insert statement
+                let sql_insert_supplier = post_sql_queries::post_sql(query, value_map);
+
+                // execute the SQL statement and notify the user of if successful or not
+                json_object["success"] = if let Some(sql) = sql_insert_supplier {
+                    if let Err(_) = connection.execute(sql) {
+                        return Err(DatabaseError::SubmissionError("Failed to insert supplier".to_string()));
+                    }
+                    else {
+                        json::JsonValue::Boolean(true)
+                    }          
+                } else {
+                    json_object["message"] = json::JsonValue::String("Insertion failure".to_string());
+                    json::JsonValue::Boolean(false)
+                }           
+            }
+        },
+        _ => {
+            return Err(DatabaseError::SubmissionError("Invalid query type".to_string()));
+        }
+    }
+
+    Ok(json_object)
 }
 
 
@@ -98,12 +132,12 @@ pub fn to_json(query: Query) -> Result<JsonValue, DatabaseError> {
       
             // setup reply json object
             json_object["payload"] = json::object! {
-                &DATA_FIELD.id => id,
-                &DATA_FIELD.name => supplier.rows[0].cells[1].to_json(),
-                &DATA_FIELD.active => supplier.rows[0].cells[2].to_json(),
-                &DATA_FIELD.contact => JsonValue::Null,
-                &DATA_FIELD.rep => JsonValue::Null,
-                &DATA_FIELD.address => JsonValue::Null,
+                data_keys::ID => id,
+                data_keys::NAME => supplier.rows[0].cells[1].to_json(),
+                data_keys::ACTIVE => supplier.rows[0].cells[2].to_json(),
+                data_keys::CONTACT => JsonValue::Null,
+                data_keys::REP => JsonValue::Null,
+                data_keys::ADDRESS => JsonValue::Null,
             };
 
       
@@ -114,7 +148,7 @@ pub fn to_json(query: Query) -> Result<JsonValue, DatabaseError> {
             )?;
 
             if supplier_email.rows.len() > 0 {
-                json_object["payload"][&DATA_FIELD.contact][&DATA_FIELD.email] = set_json_object(
+                json_object["payload"][data_keys::CONTACT][data_keys::EMAIL] = set_json_object(
                     &supplier_email, 
                     JsonStructType::TableColumn(1)
                 );
@@ -127,7 +161,7 @@ pub fn to_json(query: Query) -> Result<JsonValue, DatabaseError> {
             )?;
             
             if contact_numbers.rows.len() > 0 {
-                json_object["payload"][&DATA_FIELD.contact][&DATA_FIELD.number] = set_json_object(
+                json_object["payload"][data_keys::CONTACT][data_keys::NUMBER] = set_json_object(
                     &contact_numbers, 
                     JsonStructType::TableColumn(1)
                 );
@@ -141,8 +175,8 @@ pub fn to_json(query: Query) -> Result<JsonValue, DatabaseError> {
                 )?;
 
             if address.rows.len() > 0 {
-                json_object["payload"][&DATA_FIELD.address] = set_json_object(&address, JsonStructType::Object);
-                json_object["payload"][&DATA_FIELD.address].remove(&DATA_FIELD.id);
+                json_object["payload"][data_keys::ADDRESS] = set_json_object(&address, JsonStructType::Object);
+                json_object["payload"][data_keys::ADDRESS].remove(data_keys::ID);
             }
             
             // using the supplier id, get the supplier rep information if any
@@ -152,9 +186,9 @@ pub fn to_json(query: Query) -> Result<JsonValue, DatabaseError> {
             )?;
 
             if rep.rows.len() > 0 {
-                json_object["payload"][&DATA_FIELD.rep] = set_json_object(&rep, JsonStructType::Object);
-                json_object["payload"][&DATA_FIELD.rep].remove(&DATA_FIELD.id);
-                json_object["payload"][&DATA_FIELD.rep].remove(&DATA_FIELD.contact_id);
+                json_object["payload"][data_keys::REP] = set_json_object(&rep, JsonStructType::Object);
+                json_object["payload"][data_keys::REP].remove(data_keys::ID);
+                json_object["payload"][data_keys::REP].remove(data_keys::CONTACT_ID);
                 
                 if let Value::Integer(rep_id) = rep.rows[0].cells[0] {
                     let email = dbtable_from_query(
@@ -162,7 +196,7 @@ pub fn to_json(query: Query) -> Result<JsonValue, DatabaseError> {
                         &connection)?;
         
                     if email.rows.len() > 0 {
-                        json_object["payload"][&DATA_FIELD.rep][&DATA_FIELD.contact][&DATA_FIELD.email] = set_json_object(
+                        json_object["payload"][data_keys::REP][data_keys::CONTACT][data_keys::EMAIL] = set_json_object(
                             &email, 
                             JsonStructType::TableColumn(1)
                         );
@@ -173,7 +207,7 @@ pub fn to_json(query: Query) -> Result<JsonValue, DatabaseError> {
                         &connection)?;
         
                     if numbers.rows.len() > 0 {
-                        json_object["payload"][&DATA_FIELD.rep][&DATA_FIELD.contact][&DATA_FIELD.number] = set_json_object(
+                        json_object["payload"][data_keys::REP][data_keys::CONTACT][data_keys::NUMBER] = set_json_object(
                             &numbers, 
                             JsonStructType::TableColumn(1)
                         );
@@ -254,7 +288,7 @@ pub fn to_json(query: Query) -> Result<JsonValue, DatabaseError> {
 
             if rep.rows.len() > 0 {
                 json_object["payload"] = set_json_object(&rep, JsonStructType::Object);
-                json_object["payload"].remove(&DATA_FIELD.contact_id);
+                json_object["payload"].remove(data_keys::CONTACT_ID);
 
                 // using the contact id retrieve the contact email addresses and numbers
                
@@ -266,7 +300,7 @@ pub fn to_json(query: Query) -> Result<JsonValue, DatabaseError> {
                         &connection)?;            
     
                     if contact_email.rows.len() > 0 {
-                        json_object["payload"][&DATA_FIELD.contact][&DATA_FIELD.email] = set_json_object(
+                        json_object["payload"][data_keys::CONTACT][data_keys::EMAIL] = set_json_object(
                             &contact_email, 
                             JsonStructType::TableColumn(1)
                         );
@@ -277,7 +311,7 @@ pub fn to_json(query: Query) -> Result<JsonValue, DatabaseError> {
                         &Query::GETSupplyRepPhoneNumbersFromId(rep_contact_id), 
                         &connection)?; 
                     if contact_numbers.rows.len() > 0 {
-                        json_object["payload"][&DATA_FIELD.contact][&DATA_FIELD.number] = set_json_object(
+                        json_object["payload"][data_keys::CONTACT][data_keys::NUMBER] = set_json_object(
                             &contact_email, 
                             JsonStructType::TableColumn(1)
                         );
@@ -321,14 +355,14 @@ pub fn to_json(query: Query) -> Result<JsonValue, DatabaseError> {
 
             json_object["payload"] = set_json_object(&rep, JsonStructType::Object);
 
-            json_object["payload"].remove(&DATA_FIELD.contact_id);
+            json_object["payload"].remove(data_keys::CONTACT_ID);
 
             let email = dbtable_from_query(
                 &Query::GETSupplyRepEmailFromId(id), 
                 &connection)?;
 
             if email.rows.len() > 0 {
-                json_object["payload"][&DATA_FIELD.contact][&DATA_FIELD.email] = set_json_object(
+                json_object["payload"][data_keys::CONTACT][data_keys::EMAIL] = set_json_object(
                     &email, 
                     JsonStructType::TableColumn(1)
                 );
@@ -340,7 +374,7 @@ pub fn to_json(query: Query) -> Result<JsonValue, DatabaseError> {
                 &connection)?;
 
             if numbers.rows.len() > 0 {
-                json_object["payload"][&DATA_FIELD.contact][&DATA_FIELD.number] = set_json_object(
+                json_object["payload"][data_keys::CONTACT][data_keys::NUMBER] = set_json_object(
                     &numbers, 
                     JsonStructType::TableColumn(1)
                 );
