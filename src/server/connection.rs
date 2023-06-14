@@ -4,7 +4,11 @@ use std::io::{BufReader, prelude::*};
 use json;
 use std::time::Duration;
 use std::collections::HashMap;
-use crate::server::api::{uri_to_api_query, query_types::{Query, Content}};
+use crate::server::api::{
+    uri_to_api_query, 
+    query_types::{Query, Content},
+    config::responses::{self, standard_json_response, standard_html_response},
+};
 use crate::server::api::routing::ApiTree;
 use crate::server::process_query;
 
@@ -48,22 +52,27 @@ pub fn connection(mut stream: TcpStream, api_tree: &mut Box<ApiTree>) {
         },
         Some(Query::NoneApi) => {
             // TODO: implement some sort of routing for none api requests
-            response_content_type = String::from("text/html");
-            response_content = String::from("This page does belong to the api");
-            response_status_line = "HTTP/1.1 200 OK".to_string();
+            (
+                response_content, 
+                response_content_type, 
+                response_status_line
+            ) = standard_json_response(responses::JSON_RESOURCE_NOT_FOUND);
+
         },
         Some(Query::ApiInvalidUri) => {
-            response_content_type = String::from("application/json");
-
-            let response = json::object!{
-                "error" => "Invalid API uri"
-            };
-            response_content = String::from("Invalid API uri");
-            response_status_line = "HTTP/1.1 400 OK".to_string();
+    
+            (
+                response_content, 
+                response_content_type, 
+                response_status_line
+            ) = standard_json_response(responses::JSON_BAD_REQUEST);
         },
         Some(_) => {
-            (response_content, response_content_type, response_status_line) = 
-            match the_request.method.as_str() {
+            (
+                response_content, 
+                response_content_type, 
+                response_status_line
+            ) =  match the_request.method.as_str() {
                 "GET" => {
                     process_query::get_request(some_query.unwrap(), the_request)
                 },
@@ -76,18 +85,16 @@ pub fn connection(mut stream: TcpStream, api_tree: &mut Box<ApiTree>) {
                 "DELETE" => {
                     process_query::delete_request(some_query.unwrap(), the_request)
                 },
-                _ => {
-                    (String::from("text/html"),
-                    String::from("Invalid request method"),
-                    "HTTP/1.1 400 OK".to_string())
-                }
+                _ => standard_json_response(responses::JSON_BAD_REQUEST),
             }
 
         },
         None => {
-            response_content_type = String::from("text/html");
-            response_content = String::from("<p>404 Not Found</p>");
-            response_status_line = "HTTP/1.1 404 NOT FOUND".to_string();
+            (
+                response_content, 
+                response_content_type, 
+                response_status_line
+            ) = standard_html_response(responses::HTML_NOT_FOUND);
         }
         
     }

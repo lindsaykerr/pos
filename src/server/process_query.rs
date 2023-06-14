@@ -5,6 +5,8 @@ use crate::server::api::query_types::Query;
 use crate::server::connection::Request;
 use crate::server::databases::sqlite;
 
+use crate::server::api::config::responses::{self, standard_json_response};
+
 pub fn get_request(query: Query, request: Request) -> (String, String, String) {
 
     // specify which process function to use based on the query
@@ -42,7 +44,7 @@ pub fn get_request(query: Query, request: Request) -> (String, String, String) {
         },
         Err(error) => {
             println!("Error: {:?}", error);
-            return ("Api Error".to_string(), String::from("text/html"), String::from("HTTP/1.1 500 Internal Server Error"));
+            return standard_json_response(responses::JSON_SERVER_ERROR);
         }
     }
 
