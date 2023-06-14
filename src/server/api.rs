@@ -2,55 +2,12 @@ pub mod parsing;
 pub mod routing;
 pub mod query_types;
 pub mod util_structs;
-use json::{self, JsonValue};
+pub mod config;
+
 
 use query_types::{Query};
 use parsing::{query_with_path_variables};
 use self::routing::ApiTree;
-
-pub struct StandardApiResponseMessage  {
-    pub htmlNotFound: String,
-    pub htmlBadRequest: String,
-    pub htmlServerError: String,
-    pub jsonResourceNotFound: JsonValue,
-    pub jsonBadRequest: JsonValue,
-    pub jsonSuccess: JsonValue,
-}
-
-impl StandardApiResponseMessage {
-    pub fn new() -> StandardApiResponseMessage {
-        StandardApiResponseMessage {
-            htmlNotFound: String::from("404 Not Found"),
-            htmlBadRequest: String::from("400 Bad Request"),
-            htmlServerError: String::from("500 Internal Server Error"),
-            jsonResourceNotFound: json::object!{
-                "code": 404,
-                "success": false,
-                "message": "Resource Not Found"
-            },
-        
-            jsonBadRequest: json::object!{
-                "code": 400,
-                "success": false,
-                "message": "Bad Request"
-            },
-            jsonSuccess: json::object!{
-                "code": 200,
-                "success": true,
-                "message": "Success"
-            },
-        }
-    }
-}
-
-pub fn ApiResponseMessage() -> StandardApiResponseMessage {
-    StandardApiResponseMessage::new()
-}
-
-
-
-
-
 
 
 
