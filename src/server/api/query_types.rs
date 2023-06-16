@@ -45,6 +45,9 @@ pub enum Query {
     GETSupplyRepEmailFromId(u64),
 
     POSTSupplier(Content),
+    POSTAddress(Content),
+    POSTContactEmails(Content),
+    POSTContactPhoneNumbers(Content),
 
     ApiInvalidUri,
     NoneApi,
@@ -73,6 +76,9 @@ impl Clone for Query {
             Query::GETSupplyRepEmailFromId(id) => Query::GETSupplyRepEmailFromId(*id),
 
             Query::POSTSupplier(content) => Query::POSTSupplier(content.clone()),
+            Query::POSTAddress(content) => Query::POSTAddress(content.clone()),
+            Query::POSTContactEmails(content) => Query::POSTContactEmails(content.clone()),
+            Query::POSTContactPhoneNumbers(content) => Query::POSTContactPhoneNumbers(content.clone()),
 
        
             Query::ApiInvalidUri => Query::ApiInvalidUri,

@@ -15,6 +15,21 @@ pub fn post_tables(for_query: Query) -> DBTableStruct {
             supplier
             
         },
+        Query::POSTAddress(_) => {
+            let mut address = address_table();
+            address.fields.remove(0); // Remove id field
+            address
+        },
+        Query::POSTContactEmails(_) => {
+            let mut emails = email_table();
+            emails.fields.remove(0); // Remove id field
+            emails
+        },
+        Query::POSTContactPhoneNumbers(_) => {
+            let mut numbers = numbers_table();
+            numbers.fields.remove(0); // Remove id field
+            numbers
+        },
         _ => DBTableStruct::new()
     }
 }

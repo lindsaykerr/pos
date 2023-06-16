@@ -175,7 +175,9 @@ pub enum JsonStructType {
     TableColumn(usize)
 }
 
-pub fn set_json_object(table: &DBTable, json_type: JsonStructType) -> JsonValue {
+// Uses the data held within a DBTable and returns a json object with a data structure of the stated type.
+
+pub fn table_to_json_struct(table: &DBTable, json_type: JsonStructType) -> JsonValue {
     let temp_json = table.to_json();
 
     match json_type {
