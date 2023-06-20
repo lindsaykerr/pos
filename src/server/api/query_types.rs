@@ -48,6 +48,7 @@ pub enum Query {
     POSTAddress(Content),
     POSTContactEmails(Content),
     POSTContactPhoneNumbers(Content),
+    POSTRep(Content),
 
     ApiInvalidUri,
     NoneApi,
@@ -79,7 +80,7 @@ impl Clone for Query {
             Query::POSTAddress(content) => Query::POSTAddress(content.clone()),
             Query::POSTContactEmails(content) => Query::POSTContactEmails(content.clone()),
             Query::POSTContactPhoneNumbers(content) => Query::POSTContactPhoneNumbers(content.clone()),
-
+            Query::POSTRep(content) => Query::POSTRep(content.clone()),
        
             Query::ApiInvalidUri => Query::ApiInvalidUri,
             Query::NoneApi => Query::NoneApi,

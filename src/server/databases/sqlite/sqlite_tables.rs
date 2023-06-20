@@ -30,6 +30,12 @@ pub fn post_tables(for_query: Query) -> DBTableStruct {
             numbers.fields.remove(0); // Remove id field
             numbers
         },
+        Query::POSTRep(_) => {
+            let mut rep = rep_table();
+            rep.fields.remove(0); // Remove id field
+            rep.fields.remove(4); // Remove contact_id field (auto generated on db)
+            rep
+        },
         _ => DBTableStruct::new()
     }
 }
